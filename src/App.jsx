@@ -138,6 +138,7 @@ export default function App() {
   const [breaks, setBreaks] = useState([]);
   const [tempBreakStart, setTempBreakStart] = useState("");
   const [tempBreakEnd, setTempBreakEnd] = useState("");
+  const [bypassShield, setBypassShield] = useState(false);
 
   const playerRef = useRef(null);
   const lastSeekTimeRef = useRef(0);
@@ -848,7 +849,15 @@ export default function App() {
       .then(result => {
         if (result.success) {
           setOriginalSongData(JSON.parse(JSON.stringify(activeBeatmap)));
-          showToast(`✅ Saved 3 safety files successfully for ${payload.youtubeId}!`);
+          // Clear active taps in-memory and in localStorage to unlock visual count pulsing!
+          setRawTaps([]);
+          setAnchors([]);
+          setCalibrationStats(null);
+          setEstimatedDelay(null);
+          if (payload.youtubeId) {
+            localStorage.removeItem(`armada_raw_taps_${payload.youtubeId}`);
+          }
+          showToast(`✅ Saved & cleared taps for Audition Mode!`);
         } else {
           throw new Error(result.error);
         }
@@ -1173,7 +1182,7 @@ export default function App() {
               Groove resumes in {Math.max(0, activeBreak.endTimestamp - currentTime).toFixed(1)}s
             </div>
           </div>
-        ) : rawTaps.length > 0 ? (
+        ) : rawTaps.length > 0 && !bypassShield ? (
           <div className="bias-shield-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "12px 6px" }}>
             <div className="bias-shield-icon" style={{ fontSize: "1.8rem", animation: "pulse 2s infinite" }}>🔒</div>
             <div className="bias-shield-title" style={{ fontSize: "0.95rem", fontWeight: "800", color: "#f3f4f6", letterSpacing: "0.5px" }}>Visual Counts Shielded</div>
@@ -1282,7 +1291,19 @@ export default function App() {
             <span style={{ fontSize: "0.9rem", fontWeight: "800", color: "#c084fc", textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px" }}>
               🛠️ Creator Calibration Desk
             </span>
-            <span style={{ fontSize: "0.7rem", color: "#6b7280", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>DEV MODE</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "0.7rem", color: "#6b7280", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>DEV MODE</span>
+              <button 
+                onClick={() => {
+                  setShowDiagnostic(false);
+                  showToast("🔒 Dev Panel Locked!");
+                }}
+                style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#f87171", padding: "2px 8px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: "700", cursor: "pointer", transition: "all 0.2s ease" }}
+                title="Lock and hide the Developer Calibration Desk"
+              >
+                Exit
+              </button>
+            </div>
           </div>
 
           {/* 1. Reaction & Bluetooth Lag Slider */}
@@ -1303,6 +1324,20 @@ export default function App() {
             <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
               Offsets human reaction latency + Bluetooth audio lag (recommend 220ms).
             </span>
+          </div>
+
+          {/* 1.5. Audition Bypass Shield Toggle */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: "rgba(255,255,255,0.02)", padding: "8px 12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: "600", color: "#e5e7eb" }}>Audition Mode (Bypass Shield)</span>
+              <span style={{ fontSize: "0.65rem", color: "#9ca3af" }}>Show pulsing counts even while tapping.</span>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={bypassShield} 
+              onChange={(e) => setBypassShield(e.target.checked)} 
+              style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "#8b5cf6" }}
+            />
           </div>
 
           {/* 2. Intro Start Marker */}
