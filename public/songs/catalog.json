@@ -7,5 +7,23 @@
     "youtubeId": "66HCBysrJS8",
     "bpm": 172.27,
     "difficulty": "hard"
+  },
+  {
+    "id": "song-salsa-adicto",
+    "songTitle": "Adicto",
+    "artist": "Eduardo Moreno & Okocán",
+    "danceStyle": "salsa",
+    "youtubeId": "RWRHAVGoEiw",
+    "bpm": 190.0,
+    "difficulty": "medium"
+  },
+  {
+    "id": "song-bachata-que-mal-te-hice-yo",
+    "songTitle": "Que Mal Te Hice Yo",
+    "artist": "Grupo Extra",
+    "danceStyle": "bachata",
+    "youtubeId": "IFfLjoKsHX0",
+    "bpm": 138.0,
+    "difficulty": "easy"
   }
 ]
