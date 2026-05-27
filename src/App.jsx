@@ -1627,83 +1627,7 @@ export default function App() {
               </div>
             </div>
 
-
-
-            {/* 2. Intro Start Marker */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
-                <span style={{ color: "#e5e7eb" }}>Song Intro Beginning</span>
-                <span style={{ color: "#38bdf8" }}>{introStart.toFixed(2)}s</span>
-              </div>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <input
-                  type="range"
-                  min="0.0"
-                  max={videoDuration}
-                  step="0.1"
-                  value={introStart}
-                  onChange={(e) => handleIntroStartChange(e.target.value, false)}
-                  onMouseUp={(e) => handleIntroStartChange(e.target.value, true)}
-                  onTouchEnd={(e) => handleIntroStartChange(e.target.value, true)}
-                  style={{ flexGrow: 1 }}
-                />
-                <button
-                  className="btn-dev-sync"
-                  onClick={handleMarkIntroStart}
-                  title="Mark the current video playhead time as the intro beginning"
-                >
-                  🎯 Mark Start
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
-                <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.5, true)} title="Decrease by 0.5s">-0.5s</button>
-                <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.1, true)} title="Decrease by 0.1s">-0.1s</button>
-                <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.1, true)} title="Increase by 0.1s">+0.1s</button>
-                <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.5, true)} title="Increase by 0.5s">+0.5s</button>
-              </div>
-              <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
-                Sets where the actual song intro begins (useful if the video starts with talking or a skit).
-              </span>
-            </div>
-
-            {/* 3. Intro End Marker */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
-                <span style={{ color: "#e5e7eb" }}>Song Intro Ending</span>
-                <span style={{ color: "#f43f5e" }}>{introEnd.toFixed(2)}s</span>
-              </div>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <input
-                  type="range"
-                  min="0.0"
-                  max={videoDuration}
-                  step="0.1"
-                  value={introEnd}
-                  onChange={(e) => handleIntroEndChange(e.target.value, false)}
-                  onMouseUp={(e) => handleIntroEndChange(e.target.value, true)}
-                  onTouchEnd={(e) => handleIntroEndChange(e.target.value, true)}
-                  style={{ flexGrow: 1 }}
-                />
-                <button
-                  className="btn-dev-sync"
-                  onClick={handleMarkIntroEnd}
-                  title="Mark the current video playhead time as the intro ending"
-                >
-                  🎯 Mark End
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
-                <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.5, true)} title="Decrease by 0.5s">-0.5s</button>
-                <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.1, true)} title="Decrease by 0.1s">-0.1s</button>
-                <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.1, true)} title="Increase by 0.1s">+0.1s</button>
-                <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.5, true)} title="Increase by 0.5s">+0.5s</button>
-              </div>
-              <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
-                Sets where the visualizer should exit the Intro listening overlay and start count tracking.
-              </span>
-            </div>
-
-            {/* 3.8. Song Sections Timeline Editor */}
+            {/* Song Sections Editor — Intro pinned at top, then all song sections */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -1719,119 +1643,181 @@ export default function App() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(255,255,255,0.02)", padding: "8px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.04)" }}>
-                {editorSections.map((sec, idx) => {
+
+                {/* ── Pinned Intro section ── */}
+                {(() => {
+                  const introId = "__intro__";
+                  const isEditingIntro = activeEditingSectionId === introId;
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "8px", borderRadius: "8px", border: `1px solid ${isEditingIntro ? "rgba(56, 189, 248, 0.4)" : "rgba(255,255,255,0.06)"}`, background: isEditingIntro ? "rgba(56, 189, 248, 0.04)" : "rgba(255,255,255,0.02)" }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ flexGrow: 1, fontSize: "0.8rem", fontWeight: "700", color: "#e5e7eb" }}>🎬 Intro Region</span>
+                        <button
+                          onClick={() => setActiveEditingSectionId(isEditingIntro ? null : introId)}
+                          style={{ background: isEditingIntro ? "rgba(56, 189, 248, 0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${isEditingIntro ? "rgba(56, 189, 248, 0.4)" : "rgba(255,255,255,0.1)"}`, color: isEditingIntro ? "#38bdf8" : "#6b7280", padding: "2px 8px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: "700", cursor: "pointer", whiteSpace: "nowrap" }}
+                        >
+                          {isEditingIntro ? "✏️ On" : "✏️ Off"}
+                        </button>
+                        <button
+                          onClick={handleSaveMetadataAndBreaks}
+                          style={{ background: "none", border: "none", fontSize: "0.95rem", cursor: "pointer", opacity: 0.7, transition: "opacity 0.15s ease" }}
+                          onMouseEnter={e => e.target.style.opacity = 1}
+                          onMouseLeave={e => e.target.style.opacity = 0.7}
+                          title="Save intro boundaries to disk"
+                        >💾</button>
+                      </div>
+
+                      {isEditingIntro ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                          {/* Intro Start */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: "600", color: "#9ca3af" }}>
+                              <span>Start</span><span style={{ color: "#38bdf8" }}>{introStart.toFixed(2)}s</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <input type="range" min="0" max={videoDuration} step="0.1" value={introStart}
+                                onChange={(e) => handleIntroStartChange(e.target.value, false)}
+                                onMouseUp={(e) => handleIntroStartChange(e.target.value, true)}
+                                onTouchEnd={(e) => handleIntroStartChange(e.target.value, true)}
+                                style={{ flexGrow: 1, accentColor: "#38bdf8" }}
+                              />
+                              <button className="btn-dev-sync" onClick={handleMarkIntroStart} title="Mark current playhead as intro start">🎯 Mark</button>
+                            </div>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.5, true)}>-0.5s</button>
+                              <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.1, true)}>-0.1s</button>
+                              <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.1, true)}>+0.1s</button>
+                              <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.5, true)}>+0.5s</button>
+                            </div>
+                          </div>
+                          {/* Intro End */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: "600", color: "#9ca3af" }}>
+                              <span>End</span><span style={{ color: "#f43f5e" }}>{introEnd.toFixed(2)}s</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <input type="range" min="0" max={videoDuration} step="0.1" value={introEnd}
+                                onChange={(e) => handleIntroEndChange(e.target.value, false)}
+                                onMouseUp={(e) => handleIntroEndChange(e.target.value, true)}
+                                onTouchEnd={(e) => handleIntroEndChange(e.target.value, true)}
+                                style={{ flexGrow: 1, accentColor: "#f43f5e" }}
+                              />
+                              <button className="btn-dev-sync" onClick={handleMarkIntroEnd} title="Mark current playhead as intro end">🎯 Mark</button>
+                            </div>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.5, true)}>-0.5s</button>
+                              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.1, true)}>-0.1s</button>
+                              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.1, true)}>+0.1s</button>
+                              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.5, true)}>+0.5s</button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: "16px", fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic", padding: "2px 4px" }}>
+                          <span>Start: <strong style={{ color: "#e5e7eb" }}>{introStart.toFixed(2)}s</strong></span>
+                          <span>End: <strong style={{ color: "#e5e7eb" }}>{introEnd.toFixed(2)}s</strong></span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Song sections ── */}
+                {editorSections.map((sec) => {
                   const isEditing = activeEditingSectionId === sec.id;
                   return (
                     <div key={sec.id} style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "8px", borderRadius: "8px", border: `1px solid ${isEditing ? "rgba(56, 189, 248, 0.4)" : "rgba(255,255,255,0.04)"}`, background: isEditing ? "rgba(56, 189, 248, 0.04)" : "rgba(0,0,0,0.15)" }}>
                       
-                      {/* Name input + Lock/Unlock Edit + 💾 + 🗑️ */}
+                      {/* Header row */}
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <input 
                           type="text" 
                           value={sec.name} 
                           onChange={(e) => handleUpdateSectionName(sec.id, e.target.value)}
-                          placeholder="Section Name (e.g. Intro, Chorus)"
+                          placeholder="Section Name (e.g. Verse, Chorus)"
                           style={{ flexGrow: 1, padding: "4px 8px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", color: "#fff", fontWeight: "600" }}
                         />
-                        
-                        {/* Edit/Freeze lock toggle button */}
                         <button
                           onClick={() => setActiveEditingSectionId(isEditing ? null : sec.id)}
-                          style={{ 
-                            background: isEditing ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.05)", 
-                            border: `1px solid ${isEditing ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.1)"}`, 
-                            color: isEditing ? "#34d399" : "#d1d5db", 
-                            padding: "2px 8px", 
-                            borderRadius: "6px", 
-                            fontSize: "0.7rem", 
-                            fontWeight: "700",
-                            cursor: "pointer"
-                          }}
-                          title={isEditing ? "Freeze (lock) this section's sliders" : "Enable (unlock) this section to edit boundaries and seek player"}
+                          style={{ background: isEditing ? "rgba(56, 189, 248, 0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${isEditing ? "rgba(56, 189, 248, 0.4)" : "rgba(255,255,255,0.1)"}`, color: isEditing ? "#38bdf8" : "#6b7280", padding: "2px 8px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: "700", cursor: "pointer", whiteSpace: "nowrap" }}
+                          title={isEditing ? "Disable editing" : "Enable editing"}
                         >
-                          {isEditing ? "❄️ Freeze" : "🛠️ Edit"}
+                          {isEditing ? "✏️ On" : "✏️ Off"}
                         </button>
-
-                        {/* Floppy disk emoji to save sections to disk */}
-                        <button
-                          onClick={handleSaveSectionsToDisk}
-                          style={{ background: "none", border: "none", fontSize: "0.95rem", cursor: "pointer" }}
-                          title="Save all sections to permanent disk storage"
-                        >
-                          💾
-                        </button>
-
-                        {/* Trash emoji to delete section */}
-                        <button
-                          onClick={() => handleDeleteSection(sec.id)}
-                          style={{ background: "none", border: "none", fontSize: "0.95rem", cursor: "pointer" }}
-                          title="Delete this section permanently"
-                        >
-                          🗑️
-                        </button>
+                        <button onClick={handleSaveSectionsToDisk}
+                          style={{ background: "none", border: "none", fontSize: "0.95rem", cursor: "pointer", opacity: 0.7, transition: "opacity 0.15s ease" }}
+                          onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.7}
+                          title="Save sections to disk">💾</button>
+                        <button onClick={() => handleDeleteSection(sec.id)}
+                          style={{ background: "none", border: "none", fontSize: "0.95rem", cursor: "pointer", opacity: 0.7, transition: "opacity 0.15s ease" }}
+                          onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.7}
+                          title="Delete section">🗑️</button>
                       </div>
 
-                      {/* Start/End slider displays (if editing, show sliders; if frozen, show plain text) */}
+                      {/* Sliders when enabled */}
                       {isEditing ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.65rem", fontWeight: "600", color: "#9ca3af" }}>
-                              <span>Start Boundary</span>
-                              <span style={{ color: "#38bdf8" }}>{sec.startTimestamp.toFixed(2)}s</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                          {/* Start */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: "600", color: "#9ca3af" }}>
+                              <span>Start</span><span style={{ color: "#38bdf8" }}>{sec.startTimestamp.toFixed(2)}s</span>
                             </div>
-                            <input 
-                              type="range"
-                              min="0"
-                              max={videoDuration}
-                              step="0.05"
-                              value={sec.startTimestamp}
-                              onChange={(e) => handleUpdateSectionTimes(sec.id, "startTimestamp", e.target.value)}
-                              style={{ width: "100%", height: "6px", cursor: "pointer", accentColor: "#38bdf8" }}
-                            />
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <input type="range" min="0" max={videoDuration} step="0.05" value={sec.startTimestamp}
+                                onChange={(e) => handleUpdateSectionTimes(sec.id, "startTimestamp", e.target.value)}
+                                onMouseUp={(e) => throttledSeek(parseFloat(e.target.value), true)}
+                                onTouchEnd={(e) => throttledSeek(parseFloat(e.target.value), true)}
+                                style={{ flexGrow: 1, height: "6px", cursor: "pointer", accentColor: "#38bdf8" }}
+                              />
+                              <button className="btn-dev-sync" onClick={() => { if (!player) return; const t = parseFloat(player.getCurrentTime().toFixed(2)); handleUpdateSectionTimes(sec.id, "startTimestamp", t); }} title="Mark current playhead as start">🎯 Mark</button>
+                            </div>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp - 0.5)}>-0.5s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp - 0.1)}>-0.1s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp + 0.1)}>+0.1s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp + 0.5)}>+0.5s</button>
+                            </div>
                           </div>
-                          
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.65rem", fontWeight: "600", color: "#9ca3af" }}>
-                              <span>End Boundary</span>
-                              <span style={{ color: "#f43f5e" }}>{sec.endTimestamp.toFixed(2)}s</span>
+                          {/* End */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: "600", color: "#9ca3af" }}>
+                              <span>End</span><span style={{ color: "#f43f5e" }}>{sec.endTimestamp.toFixed(2)}s</span>
                             </div>
-                            <input 
-                              type="range"
-                              min="0"
-                              max={videoDuration}
-                              step="0.05"
-                              value={sec.endTimestamp}
-                              onChange={(e) => handleUpdateSectionTimes(sec.id, "endTimestamp", e.target.value)}
-                              style={{ width: "100%", height: "6px", cursor: "pointer", accentColor: "#f43f5e" }}
-                            />
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <input type="range" min="0" max={videoDuration} step="0.05" value={sec.endTimestamp}
+                                onChange={(e) => handleUpdateSectionTimes(sec.id, "endTimestamp", e.target.value)}
+                                onMouseUp={(e) => throttledSeek(parseFloat(e.target.value), true)}
+                                onTouchEnd={(e) => throttledSeek(parseFloat(e.target.value), true)}
+                                style={{ flexGrow: 1, height: "6px", cursor: "pointer", accentColor: "#f43f5e" }}
+                              />
+                              <button className="btn-dev-sync" onClick={() => { if (!player) return; const t = parseFloat(player.getCurrentTime().toFixed(2)); handleUpdateSectionTimes(sec.id, "endTimestamp", t); }} title="Mark current playhead as end">🎯 Mark</button>
+                            </div>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp - 0.5)}>-0.5s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp - 0.1)}>-0.1s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp + 0.1)}>+0.1s</button>
+                              <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp + 0.5)}>+0.5s</button>
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic", padding: "2px 4px" }}>
-                          <span>Start: <strong>{sec.startTimestamp.toFixed(2)}s</strong></span>
-                          <span>End: <strong>{sec.endTimestamp.toFixed(2)}s</strong></span>
-                          <span style={{ opacity: 0.6 }}>❄️ Frozen</span>
+                        <div style={{ display: "flex", gap: "16px", fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic", padding: "2px 4px" }}>
+                          <span>Start: <strong style={{ color: "#e5e7eb" }}>{sec.startTimestamp.toFixed(2)}s</strong></span>
+                          <span>End: <strong style={{ color: "#e5e7eb" }}>{sec.endTimestamp.toFixed(2)}s</strong></span>
                         </div>
                       )}
                     </div>
                   );
                 })}
+
                 {editorSections.length === 0 && (
-                  <span style={{ fontSize: "0.65rem", color: "#6b7280", fontStyle: "italic", textAlign: "center" }}>No sections calibrated yet. Click Add Section!</span>
+                  <span style={{ fontSize: "0.65rem", color: "#6b7280", fontStyle: "italic", textAlign: "center" }}>No sections yet. Click ➕ Add Section!</span>
                 )}
               </div>
             </div>
 
-
-
-            {/* 3. Utility Button Deck */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "4px" }}>
-              <button className="btn-touch" onClick={handleResetCalibration} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#f87171", gridColumn: "1 / -1" }}>
-                🔄 Reset Calibration
-              </button>
-            </div>
-
-            {/* 4. Save Boundaries Dedicated Button */}
+            {/* Save Song Boundaries Button */}
             <button 
               className="btn-diagnose-action" 
               onClick={handleSaveMetadataAndBreaks}
@@ -1855,10 +1841,10 @@ export default function App() {
                 marginTop: "8px",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
               }}
-              title="Save the song intro boundaries and calibrated breaks directly to disk"
+              title="Save the song intro boundaries to disk"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              <span>Save Song Boundaries & Breaks</span>
+              <span>Save Song Boundaries</span>
             </button>
           </div>
         )}
