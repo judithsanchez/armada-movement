@@ -60,6 +60,11 @@ body {
   padding: 16px;
   box-sizing: border-box;
   position: relative;
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#root.dev-mode-active {
+  max-width: 1240px; /* Spacious workspace width on desktop computers! */
 }
 
 /* Glassmorphism Panel styles */

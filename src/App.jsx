@@ -220,6 +220,18 @@ export default function App() {
       });
   }, []);
 
+  // 1.5 Sync showDiagnostic to root container width
+  useEffect(() => {
+    const rootEl = document.getElementById("root");
+    if (rootEl) {
+      if (showDiagnostic) {
+        rootEl.classList.add("dev-mode-active");
+      } else {
+        rootEl.classList.remove("dev-mode-active");
+      }
+    }
+  }, [showDiagnostic]);
+
   const handleSelectSong = (song) => {
     setLoadingSong(true);
     
