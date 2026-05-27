@@ -529,12 +529,12 @@ export default function App() {
     showToast(`🎯 Tap #${newRawTaps.length} recorded!`);
   };
 
-  const handleNormalizeBeatmap = () => {
+  const handleNormalizeBeatmap = (silent = false) => {
     const baseSong = originalSongData || songData;
     if (!baseSong) return;
 
     if (rawTaps.length === 0) {
-      showToast("⚠️ Record at least 1 tap to run normalization!");
+      if (!silent) showToast("⚠️ Record at least 1 tap to run normalization!");
       return;
     }
 
@@ -591,7 +591,7 @@ export default function App() {
         medianDiffMs: Math.round(globalShift * 1000)
       });
 
-      showToast(`✅ Global grid shifted by ${Math.round(globalShift * 1000)}ms!`);
+      if (!silent) showToast(`✅ Global grid shifted by ${Math.round(globalShift * 1000)}ms!`);
       return;
     }
 
@@ -627,7 +627,7 @@ export default function App() {
     });
 
     if (matchedPairs.length === 0) {
-      showToast("⚠️ No taps could be matched to downbeats. Try tapping more precisely.");
+      if (!silent) showToast("⚠️ No taps could be matched to downbeats. Try tapping more precisely.");
       return;
     }
 
@@ -641,7 +641,7 @@ export default function App() {
     const outlierCount = matchedPairs.length - cleanPairs.length;
 
     if (cleanPairs.length === 0) {
-      showToast("⚠️ All taps were classified as outliers. Please try again.");
+      if (!silent) showToast("⚠️ All taps were classified as outliers. Please try again.");
       return;
     }
 
@@ -710,7 +710,11 @@ export default function App() {
       medianDiffMs: Math.round((medianDiff + globalShift) * 1000)
     });
 
-    showToast(`✅ Normalized! ${cleanPairs.length}/${rawTaps.length} taps matched. Outliers: ${outlierCount}`);
+    if (!silent) {
+      showToast(`✅ Normalized! ${cleanPairs.length}/${rawTaps.length} taps matched. Outliers: ${outlierCount}`);
+    } else {
+      console.log(`[Normalization] ${cleanPairs.length}/${rawTaps.length} taps matched. Outliers: ${outlierCount}`);
+    }
   };  const handleResetCalibration = () => {
     if (originalSongData) {
       setCalibratedSongData(JSON.parse(JSON.stringify(originalSongData)));
@@ -1005,19 +1009,23 @@ export default function App() {
     }
   }, [rawTaps, songData]);
 
-  // Restore taps from LocalStorage on initial load
+  // Restore taps from LocalStorage on initial load / Dev Mode toggle
   useEffect(() => {
     if (!songData?.metadata?.youtubeId) return;
     
     const youtubeId = songData.metadata.youtubeId;
-    const backup = localStorage.getItem(`armada_raw_taps_${youtubeId}`);
-    
-    // Reset tap state when a song is first loaded to clear previous song's active state
-    setRawTaps([]);
-    setAnchors([]);
-    setCalibrationStats(null);
-    setEstimatedDelay(null);
 
+    if (!showDiagnostic) {
+      // Clear tap state in memory immediately when leaving Dev Mode
+      setRawTaps([]);
+      setAnchors([]);
+      setCalibrationStats(null);
+      setEstimatedDelay(null);
+      return;
+    }
+    
+    // We are in Dev Mode, restore from LocalStorage if there are backup taps
+    const backup = localStorage.getItem(`armada_raw_taps_${youtubeId}`);
     if (backup) {
       try {
         const parsed = JSON.parse(backup);
@@ -1025,15 +1033,21 @@ export default function App() {
           setRawTaps(parsed);
           // Wait briefly for songData to load, then normalize to recreate anchors/calibrationStats!
           setTimeout(() => {
-            handleNormalizeBeatmap();
+            handleNormalizeBeatmap(true); // SILENT!
             showToast(`⚡ Restored ${parsed.length} taps from local backup!`);
           }, 600);
         }
       } catch (e) {
         console.warn("Restore backup failed:", e);
       }
+    } else {
+      // If no backup, clear memory anyway just in case
+      setRawTaps([]);
+      setAnchors([]);
+      setCalibrationStats(null);
+      setEstimatedDelay(null);
     }
-  }, [originalSongData]);
+  }, [originalSongData, showDiagnostic]);
 
   // Auto-Normalization Debounce: Automatically runs the normalization engine in the background
   // whenever the user pauses the playback, the song ends, or stops tapping for 2 seconds.
@@ -1042,13 +1056,13 @@ export default function App() {
 
     // 1. If paused, run normalization instantly
     if (!isActuallyPlaying) {
-      handleNormalizeBeatmap();
+      handleNormalizeBeatmap(true); // SILENT!
       return;
     }
 
     // 2. If playing, run normalization after 2 seconds of no new taps (idle-debounce)
     const timer = setTimeout(() => {
-      handleNormalizeBeatmap();
+      handleNormalizeBeatmap(true); // SILENT!
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -1182,7 +1196,7 @@ export default function App() {
               Groove resumes in {Math.max(0, activeBreak.endTimestamp - currentTime).toFixed(1)}s
             </div>
           </div>
-        ) : rawTaps.length > 0 && !bypassShield ? (
+        ) : showDiagnostic && rawTaps.length > 0 && !bypassShield ? (
           <div className="bias-shield-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "12px 6px" }}>
             <div className="bias-shield-icon" style={{ fontSize: "1.8rem", animation: "pulse 2s infinite" }}>🔒</div>
             <div className="bias-shield-title" style={{ fontSize: "0.95rem", fontWeight: "800", color: "#f3f4f6", letterSpacing: "0.5px" }}>Visual Counts Shielded</div>
@@ -1523,92 +1537,94 @@ export default function App() {
       )}
 
       {/* 7.5. Public Tapping Deck (Clean & Sleek for Tappers) */}
-      <div className="glass-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
-        <button
-          className="btn-diagnose-tap"
-          onClick={handleTapOnOne}
-          style={{ width: "100%", height: "80px", borderRadius: "16px", border: "3px solid #8b5cf6" }}
-        >
-          <span style={{ fontSize: "1.2rem", fontWeight: "800" }}>TAP ON "1"</span>
-          <span style={{ fontSize: "0.65rem", opacity: 0.8, fontWeight: "400" }}>Tap every time you hear count 1</span>
-        </button>
+      {showDiagnostic && (
+        <div className="glass-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+          <button
+            className="btn-diagnose-tap"
+            onClick={handleTapOnOne}
+            style={{ width: "100%", height: "80px", borderRadius: "16px", border: "3px solid #8b5cf6" }}
+          >
+            <span style={{ fontSize: "1.2rem", fontWeight: "800" }}>TAP ON "1"</span>
+            <span style={{ fontSize: "0.65rem", opacity: 0.8, fontWeight: "400" }}>Tap every time you hear count 1</span>
+          </button>
 
-        {rawTaps.length > 0 && (
-          <div style={{ display: "flex", width: "100%", gap: "10px", marginTop: "4px" }}>
-            <button
-              className={`btn-diagnose-action ${rawTaps.length >= 50 ? "active-ready" : "locked-pending"}`}
-              onClick={handleSaveToDisk}
-              disabled={rawTaps.length < 50}
-              style={{
-                flexGrow: 1,
-                minHeight: "48px",
-                background: rawTaps.length >= 50 
-                  ? "linear-gradient(135deg, #10b981, #059669)" 
-                  : "rgba(255,255,255,0.03)",
-                boxShadow: rawTaps.length >= 50 
-                  ? "0 4px 16px rgba(16, 185, 129, 0.25)" 
-                  : "none",
-                border: rawTaps.length >= 50 
-                  ? "none" 
-                  : "1px solid rgba(255, 255, 255, 0.05)",
-                color: rawTaps.length >= 50 ? "#fff" : "#6b7280",
-                fontWeight: "800",
-                textTransform: "uppercase",
-                borderRadius: "12px",
-                letterSpacing: "0.5px",
-                cursor: rawTaps.length >= 50 ? "pointer" : "not-allowed",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-              }}
-              title={rawTaps.length >= 50 ? "Save the normalized beatmap permanently to disk" : `Record at least 50 taps to unlock. Current: ${rawTaps.length}/50`}
-            >
-              {rawTaps.length >= 50 ? (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "pulse 2s infinite" }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  <span>Save Calibration</span>
-                </>
-              ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span>Locked: {rawTaps.length}/50</span>
-                </>
-              )}
-            </button>
+          {rawTaps.length > 0 && (
+            <div style={{ display: "flex", width: "100%", gap: "10px", marginTop: "4px" }}>
+              <button
+                className={`btn-diagnose-action ${rawTaps.length >= 50 ? "active-ready" : "locked-pending"}`}
+                onClick={handleSaveToDisk}
+                disabled={rawTaps.length < 50}
+                style={{
+                  flexGrow: 1,
+                  minHeight: "48px",
+                  background: rawTaps.length >= 50 
+                    ? "linear-gradient(135deg, #10b981, #059669)" 
+                    : "rgba(255,255,255,0.03)",
+                  boxShadow: rawTaps.length >= 50 
+                    ? "0 4px 16px rgba(16, 185, 129, 0.25)" 
+                    : "none",
+                  border: rawTaps.length >= 50 
+                    ? "none" 
+                    : "1px solid rgba(255, 255, 255, 0.05)",
+                  color: rawTaps.length >= 50 ? "#fff" : "#6b7280",
+                  fontWeight: "800",
+                  textTransform: "uppercase",
+                  borderRadius: "12px",
+                  letterSpacing: "0.5px",
+                  cursor: rawTaps.length >= 50 ? "pointer" : "not-allowed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                }}
+                title={rawTaps.length >= 50 ? "Save the normalized beatmap permanently to disk" : `Record at least 50 taps to unlock. Current: ${rawTaps.length}/50`}
+              >
+                {rawTaps.length >= 50 ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "pulse 2s infinite" }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    <span>Save Calibration</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>Locked: {rawTaps.length}/50</span>
+                  </>
+                )}
+              </button>
 
-            <button
-              onClick={() => {
-                setRawTaps([]);
-                setAnchors([]);
-                setCalibrationStats(null);
-                setEstimatedDelay(null);
-                if (songData?.metadata?.youtubeId) {
-                  localStorage.removeItem(`armada_raw_taps_${songData.metadata.youtubeId}`);
-                }
-                showToast("🔄 Taps cleared & visual shield lifted!");
-              }}
-              style={{
-                width: "48px",
-                height: "48px",
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                borderRadius: "12px",
-                color: "#f87171",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s ease"
-              }}
-              title="Clear all recorded taps and lift the visual count shield"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-            </button>
-          </div>
-        )}
-      </div>
+              <button
+                onClick={() => {
+                  setRawTaps([]);
+                  setAnchors([]);
+                  setCalibrationStats(null);
+                  setEstimatedDelay(null);
+                  if (songData?.metadata?.youtubeId) {
+                    localStorage.removeItem(`armada_raw_taps_${songData.metadata.youtubeId}`);
+                  }
+                  showToast("🔄 Taps cleared & visual shield lifted!");
+                }}
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  borderRadius: "12px",
+                  color: "#f87171",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease"
+                }}
+                title="Clear all recorded taps and lift the visual count shield"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 8. Custom bottom touch controls (Simplified Play/Pause Only) */}
       <div className="glass-panel" style={{ marginTop: "auto", padding: "16px" }}>
