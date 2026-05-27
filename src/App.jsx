@@ -1098,7 +1098,7 @@ export default function App() {
                 canLight = beatNum === 1 || beatNum === 3 || beatNum === 5;
                 isGold = beatNum === 1 || beatNum === 5;
               }
-              const isActive = canLight && currentBeat && currentBeat.beat === beatNum;
+              const isActive = canLight && currentTime >= introEnd && currentBeat && currentBeat.beat === beatNum;
               const isPause = !isBachata && (beatNum === 4 || beatNum === 8);
               return (
                 <div
