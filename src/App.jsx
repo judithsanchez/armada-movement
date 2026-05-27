@@ -132,9 +132,13 @@ export default function App() {
   const [catalog, setCatalog] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
   const [loadingSong, setLoadingSong] = useState(false);
+  const [introStart, setIntroStart] = useState(0.0);
   const [introEnd, setIntroEnd] = useState(0.0);
+  const [videoDuration, setVideoDuration] = useState(300.0);
 
   const playerRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
+  const seekThrottleTimeoutRef = useRef(null);
   const headerClicksRef = useRef(0);
 
   // Helper to show modern fading glass toast notifications
@@ -205,6 +209,7 @@ export default function App() {
         setSongData(data);
         setOriginalSongData(JSON.parse(JSON.stringify(data)));
         setCalibratedSongData(JSON.parse(JSON.stringify(data)));
+        setIntroStart(data.metadata?.introStart || 0.0);
         setIntroEnd(data.metadata?.introEnd || 0.0);
         setCurrentSong(song);
         setLoadingSong(false);
@@ -235,11 +240,69 @@ export default function App() {
     setRawTaps([]);
     setEstimatedDelay(null);
     setCalibrationStats(null);
+    setIntroStart(0.0);
     setIntroEnd(0.0);
   };
 
-  const handleIntroEndChange = (val) => {
-    const numericVal = parseFloat(parseFloat(val).toFixed(2));
+  const throttledSeek = (timeSec, isFinal = false) => {
+    if (!player || typeof player.seekTo !== "function") return;
+
+    const numericVal = parseFloat(parseFloat(timeSec).toFixed(2));
+
+    if (isFinal) {
+      if (seekThrottleTimeoutRef.current) {
+        clearTimeout(seekThrottleTimeoutRef.current);
+        seekThrottleTimeoutRef.current = null;
+      }
+      try {
+        player.seekTo(numericVal, true);
+        console.log(`[YouTube Seek] Final seek to ${numericVal}s`);
+      } catch (e) {
+        console.warn("Final seek error:", e);
+      }
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSeekTimeRef.current > 150) {
+      lastSeekTimeRef.current = now;
+      try {
+        // seek with allowSeekAhead = false to avoid slamming YouTube servers during active dragging
+        player.seekTo(numericVal, false);
+      } catch (e) {
+        console.warn("Throttled seek error:", e);
+      }
+    } else {
+      if (seekThrottleTimeoutRef.current) {
+        clearTimeout(seekThrottleTimeoutRef.current);
+      }
+      seekThrottleTimeoutRef.current = setTimeout(() => {
+        try {
+          player.seekTo(numericVal, true);
+        } catch (e) {
+          console.warn("Debounced seek error:", e);
+        }
+      }, 150);
+    }
+  };
+
+  const handleIntroStartChange = (val, isFinal = false) => {
+    const numericVal = parseFloat(Math.max(0, Math.min(videoDuration, parseFloat(val))).toFixed(2));
+    setIntroStart(numericVal);
+    
+    // Sync to active song metadata so that saving handles it
+    if (songData && songData.metadata) {
+      songData.metadata.introStart = numericVal;
+    }
+    if (calibratedSongData && calibratedSongData.metadata) {
+      calibratedSongData.metadata.introStart = numericVal;
+    }
+
+    throttledSeek(numericVal, isFinal);
+  };
+
+  const handleIntroEndChange = (val, isFinal = false) => {
+    const numericVal = parseFloat(Math.max(0, Math.min(videoDuration, parseFloat(val))).toFixed(2));
     setIntroEnd(numericVal);
     
     // Sync to active song metadata so that saving handles it
@@ -249,29 +312,22 @@ export default function App() {
     if (calibratedSongData && calibratedSongData.metadata) {
       calibratedSongData.metadata.introEnd = numericVal;
     }
+
+    throttledSeek(numericVal, isFinal);
+  };
+
+  const handleMarkIntroStart = () => {
+    if (!player) return;
+    const currentPlayhead = parseFloat(player.getCurrentTime().toFixed(2));
+    handleIntroStartChange(currentPlayhead, true);
+    showToast(`🎯 Intro Start set to ${currentPlayhead}s!`);
   };
 
   const handleMarkIntroEnd = () => {
     if (!player) return;
     const currentPlayhead = parseFloat(player.getCurrentTime().toFixed(2));
-    handleIntroEndChange(currentPlayhead);
-    // Also seek player to make visual auditioning instant!
-    if (typeof player.seekTo === "function") {
-      player.seekTo(currentPlayhead, true);
-    }
-    showToast(`🎯 Intro set to ${currentPlayhead}s!`);
-  };
-
-  const handleIntroEndSeek = (val) => {
-    const numericVal = parseFloat(parseFloat(val).toFixed(2));
-    if (player && typeof player.seekTo === "function") {
-      try {
-        player.seekTo(numericVal, true);
-        showToast(`⏩ Jumped to Intro boundary: ${numericVal}s`);
-      } catch (e) {
-        console.warn("Seek error:", e);
-      }
-    }
+    handleIntroEndChange(currentPlayhead, true);
+    showToast(`🎯 Intro End set to ${currentPlayhead}s!`);
   };
 
   // 2. Load the YouTube Player API script dynamically in background
@@ -352,6 +408,21 @@ export default function App() {
       }
     };
   }, [apiReady, songData]);
+
+  // Dynamic Duration Sync: query player's duration once ready
+  useEffect(() => {
+    if (player && typeof player.getDuration === "function") {
+      try {
+        const duration = player.getDuration();
+        if (duration > 0) {
+          setVideoDuration(duration);
+          console.log(`[App] Synced YouTube Video Duration: ${duration}s`);
+        }
+      } catch (e) {
+        console.warn("Error getting player duration:", e);
+      }
+    }
+  }, [player, currentSong, playerState]);
 
   // 4. Hook into the high-precision sync engine
   const { currentTime, currentBeat, activeSection, synchronizeAnchors } = useSyncEngine(
@@ -777,6 +848,57 @@ export default function App() {
       });
   };
 
+  const handleSaveIntroBoundaries = () => {
+    const activeBeatmap = calibratedSongData || songData;
+    const baseSong = originalSongData || songData;
+    if (!activeBeatmap || !baseSong) return;
+
+    // Keep existing calibration if any
+    const calibration = activeBeatmap.tapCalibration || baseSong.tapCalibration || null;
+
+    const payload = {
+      youtubeId: baseSong.metadata?.youtubeId || 'calibrated_song',
+      activeBeatmap: {
+        ...activeBeatmap,
+        metadata: {
+          ...activeBeatmap.metadata,
+          introStart,
+          introEnd
+        }
+      },
+      originalBeatmap: baseSong,
+      calibration: calibration
+    };
+
+    showToast("💾 Saving intro boundaries to disk...");
+
+    fetch("/api/save-beatmap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Server write failed");
+        return res.json();
+      })
+      .then(result => {
+        if (result.success) {
+          // Update baseline and current states in-memory to reflect saved boundaries
+          const updatedMap = JSON.parse(JSON.stringify(payload.activeBeatmap));
+          setOriginalSongData(updatedMap);
+          setSongData(updatedMap);
+          setCalibratedSongData(updatedMap);
+          showToast(`✅ Saved Intro boundaries successfully!`);
+        } else {
+          throw new Error(result.error);
+        }
+      })
+      .catch(err => {
+        console.error("Save intro boundaries failed:", err);
+        showToast("❌ Save failed. Check console.");
+      });
+  };
+
   const handleHeaderClick = () => {
     headerClicksRef.current += 1;
     if (headerClicksRef.current >= 5) {
@@ -935,7 +1057,16 @@ export default function App() {
         <div className="touch-shield" onClick={handlePlayToggle}></div>
       </div>      {/* 7. Beats Pulse Tracker (8 neon counts / Bias Shield / Intro Overlay) */}
       <div className="glass-panel" style={{ padding: "20px 10px" }}>
-        {currentTime < introEnd && rawTaps.length === 0 ? (
+        {currentTime < introStart && rawTaps.length === 0 ? (
+          <div className="intro-shield-overlay" style={{ background: "rgba(0,0,0,0.6)", borderColor: "rgba(255,255,255,0.05)" }}>
+            <div className="intro-title" style={{ color: "#9ca3af" }}>
+              <span>🎬 Pre-Song / Video Skit</span>
+            </div>
+            <div className="intro-countdown" style={{ color: "#6b7280", background: "transparent", border: "none" }}>
+              Intro starts in {Math.max(0, introStart - currentTime).toFixed(1)}s
+            </div>
+          </div>
+        ) : currentTime >= introStart && currentTime < introEnd && rawTaps.length === 0 ? (
           <div className="intro-shield-overlay">
             <div className="intro-title">
               <span>✨ Intro — Feel the Rhythm</span>
@@ -1015,31 +1146,74 @@ export default function App() {
             </span>
           </div>
 
-          {/* 2. Intro End Marker */}
+          {/* 2. Intro Start Marker */}
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
-              <span style={{ color: "#e5e7eb" }}>Song Intro Boundary</span>
-              <span style={{ color: "#f43f5e" }}>{introEnd.toFixed(1)}s</span>
+              <span style={{ color: "#e5e7eb" }}>Song Intro Beginning</span>
+              <span style={{ color: "#38bdf8" }}>{introStart.toFixed(2)}s</span>
             </div>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <input
                 type="range"
                 min="0.0"
-                max="60.0"
-                step="0.5"
+                max={videoDuration}
+                step="0.1"
+                value={introStart}
+                onChange={(e) => handleIntroStartChange(e.target.value, false)}
+                onMouseUp={(e) => handleIntroStartChange(e.target.value, true)}
+                onTouchEnd={(e) => handleIntroStartChange(e.target.value, true)}
+                style={{ flexGrow: 1 }}
+              />
+              <button
+                className="btn-dev-sync"
+                onClick={handleMarkIntroStart}
+                title="Mark the current video playhead time as the intro beginning"
+              >
+                🎯 Mark Start
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
+              <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.5, true)} title="Decrease by 0.5s">-0.5s</button>
+              <button className="btn-step" onClick={() => handleIntroStartChange(introStart - 0.1, true)} title="Decrease by 0.1s">-0.1s</button>
+              <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.1, true)} title="Increase by 0.1s">+0.1s</button>
+              <button className="btn-step" onClick={() => handleIntroStartChange(introStart + 0.5, true)} title="Increase by 0.5s">+0.5s</button>
+            </div>
+            <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
+              Sets where the actual song intro begins (useful if the video starts with talking or a skit).
+            </span>
+          </div>
+
+          {/* 3. Intro End Marker */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
+              <span style={{ color: "#e5e7eb" }}>Song Intro Ending</span>
+              <span style={{ color: "#f43f5e" }}>{introEnd.toFixed(2)}s</span>
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <input
+                type="range"
+                min="0.0"
+                max={videoDuration}
+                step="0.1"
                 value={introEnd}
-                onChange={(e) => handleIntroEndChange(e.target.value)}
-                onMouseUp={(e) => handleIntroEndSeek(e.target.value)}
-                onTouchEnd={(e) => handleIntroEndSeek(e.target.value)}
+                onChange={(e) => handleIntroEndChange(e.target.value, false)}
+                onMouseUp={(e) => handleIntroEndChange(e.target.value, true)}
+                onTouchEnd={(e) => handleIntroEndChange(e.target.value, true)}
                 style={{ flexGrow: 1 }}
               />
               <button
                 className="btn-dev-sync"
                 onClick={handleMarkIntroEnd}
-                title="Mark the current video playback playhead time as the intro boundary"
+                title="Mark the current video playhead time as the intro ending"
               >
-                🎯 Set Playhead
+                🎯 Mark End
               </button>
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
+              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.5, true)} title="Decrease by 0.5s">-0.5s</button>
+              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd - 0.1, true)} title="Decrease by 0.1s">-0.1s</button>
+              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.1, true)} title="Increase by 0.1s">+0.1s</button>
+              <button className="btn-step" onClick={() => handleIntroEndChange(introEnd + 0.5, true)} title="Increase by 0.5s">+0.5s</button>
             </div>
             <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
               Sets where the visualizer should exit the Intro listening overlay and start count tracking.
@@ -1061,6 +1235,36 @@ export default function App() {
               💾 Download JSON
             </button>
           </div>
+
+          {/* 4. Save Boundaries Dedicated Button */}
+          <button 
+            className="btn-diagnose-action" 
+            onClick={handleSaveIntroBoundaries}
+            style={{
+              width: "100%",
+              minHeight: "42px",
+              background: "linear-gradient(135deg, #a78bfa, #8b5cf6)",
+              boxShadow: "0 4px 14px rgba(139, 92, 246, 0.3)",
+              border: "none",
+              color: "#fff",
+              fontWeight: "800",
+              textTransform: "uppercase",
+              borderRadius: "12px",
+              fontSize: "0.8rem",
+              letterSpacing: "0.5px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              marginTop: "8px",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            }}
+            title="Save the intro start and end times directly to the JSON configuration file on disk"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span>Save Intro Boundaries to Disk</span>
+          </button>
         </div>
       )}
 

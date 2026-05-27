@@ -1328,3 +1328,30 @@ body {
 .btn-dev-sync:active {
   transform: translateY(1px);
 }
+
+/* Micro-adjustment step buttons inside Developer Calibration Suite */
+.btn-step {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d1d5db;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.btn-step:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-step:active {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(1px);
+}
+
