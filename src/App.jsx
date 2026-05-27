@@ -132,6 +132,7 @@ export default function App() {
   const [catalog, setCatalog] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
   const [loadingSong, setLoadingSong] = useState(false);
+  const [introEnd, setIntroEnd] = useState(0.0);
 
   const playerRef = useRef(null);
   const headerClicksRef = useRef(0);
@@ -204,6 +205,7 @@ export default function App() {
         setSongData(data);
         setOriginalSongData(JSON.parse(JSON.stringify(data)));
         setCalibratedSongData(JSON.parse(JSON.stringify(data)));
+        setIntroEnd(data.metadata?.introEnd || 0.0);
         setCurrentSong(song);
         setLoadingSong(false);
         console.log("[App] Loaded advanced beatmap successfully for:", data.metadata.songTitle);
@@ -233,6 +235,27 @@ export default function App() {
     setRawTaps([]);
     setEstimatedDelay(null);
     setCalibrationStats(null);
+    setIntroEnd(0.0);
+  };
+
+  const handleIntroEndChange = (val) => {
+    const numericVal = parseFloat(parseFloat(val).toFixed(2));
+    setIntroEnd(numericVal);
+    
+    // Sync to active song metadata so that saving handles it
+    if (songData && songData.metadata) {
+      songData.metadata.introEnd = numericVal;
+    }
+    if (calibratedSongData && calibratedSongData.metadata) {
+      calibratedSongData.metadata.introEnd = numericVal;
+    }
+  };
+
+  const handleMarkIntroEnd = () => {
+    if (!player) return;
+    const currentPlayhead = parseFloat(player.getCurrentTime().toFixed(2));
+    handleIntroEndChange(currentPlayhead);
+    showToast(`🎯 Intro set to ${currentPlayhead}s!`);
   };
 
   // 2. Load the YouTube Player API script dynamically in background
@@ -902,9 +925,18 @@ export default function App() {
       <div className="video-wrapper">
         <div key={songData?.metadata?.youtubeId || "yt-player"} id="yt-player"></div>
         <div className="touch-shield" onClick={handlePlayToggle}></div>
-      </div>      {/* 7. Beats Pulse Tracker (8 neon counts / Bias Shield) */}
+      </div>      {/* 7. Beats Pulse Tracker (8 neon counts / Bias Shield / Intro Overlay) */}
       <div className="glass-panel" style={{ padding: "20px 10px" }}>
-        {rawTaps.length > 0 ? (
+        {currentTime < introEnd && rawTaps.length === 0 ? (
+          <div className="intro-shield-overlay">
+            <div className="intro-title">
+              <span>✨ Intro — Feel the Rhythm</span>
+            </div>
+            <div className="intro-countdown">
+              Groove starts in {Math.max(0, introEnd - currentTime).toFixed(1)}s
+            </div>
+          </div>
+        ) : rawTaps.length > 0 ? (
           <div className="bias-shield-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "12px 6px" }}>
             <div className="bias-shield-icon" style={{ fontSize: "1.8rem", animation: "pulse 2s infinite" }}>🔒</div>
             <div className="bias-shield-title" style={{ fontSize: "0.95rem", fontWeight: "800", color: "#f3f4f6", letterSpacing: "0.5px" }}>Visual Counts Shielded</div>
@@ -944,6 +976,83 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Developer Calibration & Diagnostics Panel */}
+      {showDiagnostic && (
+        <div className="glass-panel dev-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px", border: "1px solid rgba(139, 92, 246, 0.3)", background: "rgba(139, 92, 246, 0.03)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "8px" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: "800", color: "#c084fc", textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px" }}>
+              🛠️ Creator Calibration Desk
+            </span>
+            <span style={{ fontSize: "0.7rem", color: "#6b7280", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>DEV MODE</span>
+          </div>
+
+          {/* 1. Reaction & Bluetooth Lag Slider */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
+              <span style={{ color: "#e5e7eb" }}>Reaction & Bluetooth Lag</span>
+              <span style={{ color: "#a78bfa" }}>{userDelaySetting}ms</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="600"
+              step="10"
+              value={userDelaySetting}
+              onChange={(e) => setUserDelaySetting(parseInt(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
+              Offsets human reaction latency + Bluetooth audio lag (recommend 220ms).
+            </span>
+          </div>
+
+          {/* 2. Intro End Marker */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
+              <span style={{ color: "#e5e7eb" }}>Song Intro Boundary</span>
+              <span style={{ color: "#f43f5e" }}>{introEnd.toFixed(1)}s</span>
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <input
+                type="range"
+                min="0.0"
+                max="60.0"
+                step="0.5"
+                value={introEnd}
+                onChange={(e) => handleIntroEndChange(e.target.value)}
+                style={{ flexGrow: 1 }}
+              />
+              <button
+                className="btn-dev-sync"
+                onClick={handleMarkIntroEnd}
+                title="Mark the current video playback playhead time as the intro boundary"
+              >
+                🎯 Set Playhead
+              </button>
+            </div>
+            <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
+              Sets where the visualizer should exit the Intro listening overlay and start count tracking.
+            </span>
+          </div>
+
+          {/* 3. Utility Button Deck */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "4px" }}>
+            <button className="btn-touch" onClick={handleSkipIntro} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
+              ⏩ Skip Intro (0:30)
+            </button>
+            <button className="btn-touch" onClick={handleResetCalibration} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#f87171" }}>
+              🔄 Reset Calibration
+            </button>
+            <button className="btn-touch" onClick={handleCopyCalibratedJson} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
+              📋 Copy JSON
+            </button>
+            <button className="btn-touch" onClick={handleDownloadCalibratedJson} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
+              💾 Download JSON
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 7.5. Public Tapping Deck (Clean & Sleek for Tappers) */}
       <div className="glass-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
