@@ -1373,23 +1373,10 @@ export default function App() {
       </header>
 
       {/* Main workspace layout wrapper */}
-      <div style={showDiagnostic ? {
-        display: "grid",
-        gridTemplateColumns: "1.15fr 0.85fr",
-        gap: "20px",
-        width: "100%",
-        alignItems: "start",
-        marginTop: "10px"
-      } : {
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        gap: "16px",
-        marginTop: "10px"
-      }}>
+      <div className={showDiagnostic ? "dev-workspace-layout" : "normal-workspace-layout"}>
 
         {/* Left Column: Player, visualizer tracker, scrubber, public tapping deck */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}>
+        <div className="left-workspace-column">
           {/* 5. Media Player Display */}
           <div className="video-wrapper">
             <div key={songData?.metadata?.youtubeId || "yt-player"} id="yt-player"></div>
@@ -1618,10 +1605,9 @@ export default function App() {
             </div>
           )}
         </div>
-
         {/* Right Column: Developer Calibration Panel */}
         {showDiagnostic && (
-          <div className="glass-panel dev-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px", border: "1px solid rgba(139, 92, 246, 0.3)", background: "rgba(139, 92, 246, 0.03)", maxHeight: "90vh", overflowY: "auto", width: "100%" }}>
+          <div className="glass-panel dev-panel right-workspace-column">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "8px" }}>
               <span style={{ fontSize: "0.9rem", fontWeight: "800", color: "#c084fc", textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px" }}>
                 🛠️ Creator Calibration Desk
@@ -1641,25 +1627,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 1. Reaction & Bluetooth Lag Slider */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "600" }}>
-                <span style={{ color: "#e5e7eb" }}>Reaction & Bluetooth Lag</span>
-                <span style={{ color: "#a78bfa" }}>{userDelaySetting}ms</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="600"
-                step="10"
-                value={userDelaySetting}
-                onChange={(e) => setUserDelaySetting(parseInt(e.target.value))}
-                style={{ width: "100%" }}
-              />
-              <span style={{ fontSize: "0.65rem", color: "#9ca3af", fontStyle: "italic" }}>
-                Offsets human reaction latency + Bluetooth audio lag (recommend 220ms).
-              </span>
-            </div>
+
 
             {/* 2. Intro Start Marker */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -1854,79 +1822,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* 3.5. Song Breaks & Cuts Editor */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "12px" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#f43f5e", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                🛑 Song Breaks & Cuts Editor (Cierres)
-              </span>
 
-              {/* Live capture markers */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                <button className="btn-dev-sync" onClick={handleMarkBreakStart} style={{ minHeight: "36px", background: "rgba(244, 63, 94, 0.15)", border: "1px solid rgba(244, 63, 94, 0.3)", color: "#f43f5e" }}>
-                  🎯 Start: {tempBreakStart ? `${tempBreakStart}s` : "Mark"}
-                </button>
-                <button className="btn-dev-sync" onClick={handleMarkBreakEnd} style={{ minHeight: "36px", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981" }}>
-                  🎯 End: {tempBreakEnd ? `${tempBreakEnd}s` : "Mark"}
-                </button>
-              </div>
-
-              {/* Add Break Button */}
-              {tempBreakStart && tempBreakEnd && (
-                <button 
-                  className="btn-dev-sync" 
-                  onClick={handleAddNewBreak}
-                  style={{ width: "100%", minHeight: "32px", background: "linear-gradient(135deg, #f43f5e, #e11d48)", justifyContent: "center" }}
-                >
-                  ➕ Add Cierre Break ({tempBreakStart}s - {tempBreakEnd}s)
-                </button>
-              )}
-
-              {/* Calibrated Breaks List */}
-              {breaks.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(255,255,255,0.02)", padding: "8px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.04)", maxHeight: "140px", overflowY: "auto" }}>
-                  {breaks.map((b, idx) => (
-                    <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: "4px", paddingBottom: "6px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem" }}>
-                        <span style={{ fontWeight: "700", color: "#e5e7eb" }}>Break #{idx + 1}</span>
-                        <button onClick={() => handleDeleteBreak(b.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", fontWeight: "700" }}>❌ Delete</button>
-                      </div>
-                      {/* Start fine tuning */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "0.65rem", color: "#9ca3af" }}>Start: <strong style={{ color: "#38bdf8" }}>{b.startTimestamp.toFixed(2)}s</strong></span>
-                        <div style={{ display: "flex", gap: "4px" }}>
-                          <button className="btn-step" onClick={() => handleAdjustBreak(b.id, "startTimestamp", -0.1)} style={{ padding: "1px 4px", fontSize: "0.6rem" }}>-0.1s</button>
-                          <button className="btn-step" onClick={() => handleAdjustBreak(b.id, "startTimestamp", 0.1)} style={{ padding: "1px 4px", fontSize: "0.6rem" }}>+0.1s</button>
-                        </div>
-                      </div>
-                      {/* End fine tuning */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "0.65rem", color: "#9ca3af" }}>End: <strong style={{ color: "#f43f5e" }}>{b.endTimestamp.toFixed(2)}s</strong></span>
-                        <div style={{ display: "flex", gap: "4px" }}>
-                          <button className="btn-step" onClick={() => handleAdjustBreak(b.id, "endTimestamp", -0.1)} style={{ padding: "1px 4px", fontSize: "0.6rem" }}>-0.1s</button>
-                          <button className="btn-step" onClick={() => handleAdjustBreak(b.id, "endTimestamp", 0.1)} style={{ padding: "1px 4px", fontSize: "0.6rem" }}>+0.1s</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span style={{ fontSize: "0.65rem", color: "#6b7280", fontStyle: "italic", textAlign: "center" }}>No cierres/breaks calibrated yet.</span>
-              )}
-            </div>
 
             {/* 3. Utility Button Deck */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "4px" }}>
-              <button className="btn-touch" onClick={handleSkipIntro} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
-                ⏩ Skip Intro (0:30)
-              </button>
-              <button className="btn-touch" onClick={handleResetCalibration} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#f87171" }}>
+              <button className="btn-touch" onClick={handleResetCalibration} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#f87171", gridColumn: "1 / -1" }}>
                 🔄 Reset Calibration
-              </button>
-              <button className="btn-touch" onClick={handleCopyCalibratedJson} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
-                📋 Copy JSON
-              </button>
-              <button className="btn-touch" onClick={handleDownloadCalibratedJson} style={{ minHeight: "36px", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)" }}>
-                💾 Download JSON
               </button>
             </div>
 
