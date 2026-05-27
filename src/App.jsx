@@ -1534,48 +1534,79 @@ export default function App() {
         </button>
 
         {rawTaps.length > 0 && (
-          <button
-            className={`btn-diagnose-action ${rawTaps.length >= 50 ? "active-ready" : "locked-pending"}`}
-            onClick={handleSaveToDisk}
-            disabled={rawTaps.length < 50}
-            style={{
-              width: "100%",
-              minHeight: "48px",
-              background: rawTaps.length >= 50 
-                ? "linear-gradient(135deg, #10b981, #059669)" 
-                : "rgba(255,255,255,0.03)",
-              boxShadow: rawTaps.length >= 50 
-                ? "0 4px 16px rgba(16, 185, 129, 0.25)" 
-                : "none",
-              border: rawTaps.length >= 50 
-                ? "none" 
-                : "1px solid rgba(255, 255, 255, 0.05)",
-              color: rawTaps.length >= 50 ? "#fff" : "#6b7280",
-              fontWeight: "800",
-              textTransform: "uppercase",
-              borderRadius: "12px",
-              letterSpacing: "0.5px",
-              cursor: rawTaps.length >= 50 ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-            }}
-            title={rawTaps.length >= 50 ? "Save the normalized beatmap permanently to disk" : `Record at least 50 taps to unlock. Current: ${rawTaps.length}/50`}
-          >
-            {rawTaps.length >= 50 ? (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "pulse 2s infinite" }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                <span>Save Calibration to Disk</span>
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span>Locked: {rawTaps.length} / 50 Taps Recorded</span>
-              </>
-            )}
-          </button>
+          <div style={{ display: "flex", width: "100%", gap: "10px", marginTop: "4px" }}>
+            <button
+              className={`btn-diagnose-action ${rawTaps.length >= 50 ? "active-ready" : "locked-pending"}`}
+              onClick={handleSaveToDisk}
+              disabled={rawTaps.length < 50}
+              style={{
+                flexGrow: 1,
+                minHeight: "48px",
+                background: rawTaps.length >= 50 
+                  ? "linear-gradient(135deg, #10b981, #059669)" 
+                  : "rgba(255,255,255,0.03)",
+                boxShadow: rawTaps.length >= 50 
+                  ? "0 4px 16px rgba(16, 185, 129, 0.25)" 
+                  : "none",
+                border: rawTaps.length >= 50 
+                  ? "none" 
+                  : "1px solid rgba(255, 255, 255, 0.05)",
+                color: rawTaps.length >= 50 ? "#fff" : "#6b7280",
+                fontWeight: "800",
+                textTransform: "uppercase",
+                borderRadius: "12px",
+                letterSpacing: "0.5px",
+                cursor: rawTaps.length >= 50 ? "pointer" : "not-allowed",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              }}
+              title={rawTaps.length >= 50 ? "Save the normalized beatmap permanently to disk" : `Record at least 50 taps to unlock. Current: ${rawTaps.length}/50`}
+            >
+              {rawTaps.length >= 50 ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "pulse 2s infinite" }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>Save Calibration</span>
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span>Locked: {rawTaps.length}/50</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setRawTaps([]);
+                setAnchors([]);
+                setCalibrationStats(null);
+                setEstimatedDelay(null);
+                if (songData?.metadata?.youtubeId) {
+                  localStorage.removeItem(`armada_raw_taps_${songData.metadata.youtubeId}`);
+                }
+                showToast("🔄 Taps cleared & visual shield lifted!");
+              }}
+              style={{
+                width: "48px",
+                height: "48px",
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                borderRadius: "12px",
+                color: "#f87171",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s ease"
+              }}
+              title="Clear all recorded taps and lift the visual count shield"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+          </div>
         )}
       </div>
 
