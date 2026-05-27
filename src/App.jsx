@@ -1153,13 +1153,7 @@ export default function App() {
         </p>
       </header>
 
-      {/* Dynamic Section Warning banner for upcoming transitions */}
-      {showTransitionCue && nextSection && (
-        <div className="next-section-banner">
-          <span className="banner-emoji">{nextSection.emoji || "🎵"}</span>
-          <span>Next: <strong>{nextSection.name}</strong> in {timeToNextSection.toFixed(1)}s...</span>
-        </div>
-      )}
+
 
 
 
@@ -1169,25 +1163,7 @@ export default function App() {
         <div className="touch-shield" onClick={handlePlayToggle}></div>
       </div>      {/* 7. Beats Pulse Tracker (8 neon counts / Bias Shield / Intro Overlay) */}
       <div className="glass-panel" style={{ padding: "20px 10px" }}>
-        {currentTime < introStart && rawTaps.length === 0 ? (
-          <div className="intro-shield-overlay" style={{ background: "rgba(0,0,0,0.6)", borderColor: "rgba(255,255,255,0.05)" }}>
-            <div className="intro-title" style={{ color: "#9ca3af" }}>
-              <span>🎬 Pre-Song / Video Skit</span>
-            </div>
-            <div className="intro-countdown" style={{ color: "#6b7280", background: "transparent", border: "none" }}>
-              Intro starts in {Math.max(0, introStart - currentTime).toFixed(1)}s
-            </div>
-          </div>
-        ) : currentTime >= introStart && currentTime < introEnd && rawTaps.length === 0 ? (
-          <div className="intro-shield-overlay">
-            <div className="intro-title">
-              <span>✨ Intro — Feel the Rhythm</span>
-            </div>
-            <div className="intro-countdown">
-              Groove starts in {Math.max(0, introEnd - currentTime).toFixed(1)}s
-            </div>
-          </div>
-        ) : activeBreak ? (
+        {activeBreak ? (
           <div className="break-freeze-overlay">
             <div className="break-freeze-title">
               <span>❄️ HOLD POSE / BREAK</span>
@@ -1240,7 +1216,7 @@ export default function App() {
       {/* 7.3. Segmented Roadmap Progress Scrubber */}
       <div className="glass-panel" style={{ padding: "14px 16px", marginBottom: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "600", color: "#9ca3af", marginBottom: "8px" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>🎵 Song Roadmap Scrubber</span>
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>Song Roadmap</span>
           <span style={{ color: "#a78bfa" }}>
             {Math.floor(currentTime / 60)}:{(Math.floor(currentTime % 60)).toString().padStart(2, "0")} / {Math.floor(videoDuration / 60)}:{(Math.floor(videoDuration % 60)).toString().padStart(2, "0")}
           </span>
