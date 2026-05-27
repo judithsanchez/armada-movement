@@ -791,16 +791,16 @@ export default function App() {
           {/* Reaction Delay Slider */}
           <div className="calibration-row" style={{ margin: "4px 0 12px 0", background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "12px", border: "1px solid rgba(139, 92, 246, 0.15)" }}>
             <div className="calibration-label" style={{ fontSize: "0.8rem", display: "flex", justifyContent: "space-between", color: "#e9d5ff", fontWeight: "600" }}>
-              <span>REACTION & BLUETOOTH LAG</span>
+              <span>AUDITORY REACTION LAG</span>
               <span style={{ color: "#c084fc", fontFamily: "monospace" }}>{userDelaySetting}ms</span>
             </div>
             <div className="calibration-subtext" style={{ fontSize: "0.65rem", color: "#a78bfa", opacity: 0.8, marginBottom: "8px" }}>
-              Compensation subtracted from raw taps (handles human lag + Bluetooth delay).
+              Time subtracted from each tap to align with the real music downbeat.
             </div>
             <input
               type="range"
-              min="0"
-              max="600"
+              min="100"
+              max="400"
               step="10"
               value={userDelaySetting}
               onChange={(e) => setUserDelaySetting(parseInt(e.target.value))}
