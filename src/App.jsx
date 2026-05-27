@@ -114,12 +114,10 @@ export default function App() {
   // Media states
   const [player, setPlayer] = useState(null);
   const [playerState, setPlayerState] = useState(-1); 
-  const [useLocalAudio, setUseLocalAudio] = useState(true); 
+  const [useLocalAudio, setUseLocalAudio] = useState(false); // default to YouTube Player mode
   const [localPlaying, setLocalPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [apiReady, setApiReady] = useState(false);
-
-
 
   // Creator Diagnostic & Calibration states
   const [showDiagnostic, setShowDiagnostic] = useState(false);
@@ -134,6 +132,7 @@ export default function App() {
 
   const playerRef = useRef(null);
   const localAudioRef = useRef(null);
+  const headerClicksRef = useRef(0);
 
   // Helper to show modern fading glass toast notifications
   const showToast = (msg) => {
@@ -588,6 +587,7 @@ export default function App() {
     setRawTaps([]);
     setEstimatedDelay(null);
     setCalibrationStats(null);
+    localStorage.removeItem("armada_raw_taps");
     showToast("🔄 Reset all anchors and taps. Restored original raw grid.");
   };
 
@@ -715,6 +715,51 @@ export default function App() {
       });
   };
 
+  const handleHeaderClick = () => {
+    headerClicksRef.current += 1;
+    if (headerClicksRef.current >= 5) {
+      setShowDiagnostic(prev => !prev);
+      headerClicksRef.current = 0;
+      showToast(showDiagnostic ? "🔒 Dev Panel Locked!" : "🛠️ Developer Panel Toggled!");
+    }
+  };
+
+  // Check URL parameters for ?dev=true to auto-unlock dev features
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("dev") === "true") {
+      setShowDiagnostic(true);
+      showToast("🛠️ Developer Mode Unlocked via URL!");
+    }
+  }, []);
+
+  // Backup taps to LocalStorage to protect the creator's job!
+  useEffect(() => {
+    if (rawTaps.length > 0) {
+      localStorage.setItem("armada_raw_taps", JSON.stringify(rawTaps));
+    }
+  }, [rawTaps]);
+
+  // Restore taps from LocalStorage on initial load
+  useEffect(() => {
+    const backup = localStorage.getItem("armada_raw_taps");
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRawTaps(parsed);
+          // Wait briefly for songData to load, then normalize to recreate anchors/calibrationStats!
+          setTimeout(() => {
+            handleNormalizeBeatmap();
+            showToast(`⚡ Restored ${parsed.length} taps from local backup!`);
+          }, 600);
+        }
+      } catch (e) {
+        console.warn("Restore backup failed:", e);
+      }
+    }
+  }, [originalSongData]);
+
   // Auto-Normalization Debounce: Automatically runs the normalization engine in the background
   // whenever the user pauses the playback, the song ends, or stops tapping for 2 seconds.
   useEffect(() => {
@@ -737,7 +782,7 @@ export default function App() {
   return (
     <div className="app-container" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* 1. Header Section */}
-      <header className="header glass-panel">
+      <header className="header glass-panel" onClick={handleHeaderClick} style={{ cursor: "pointer" }} title="Click 5 times for Developer Panel">
         <h1 className="song-title">
           {songData ? songData.metadata.songTitle : "Salsa Rhythm Hub"}
         </h1>
@@ -746,34 +791,25 @@ export default function App() {
         </p>
       </header>
 
-      {/* 2. Dynamic Source Selector */}
-      <div className="source-switcher">
-        <button
-          className={`source-btn ${useLocalAudio ? "active" : ""}`}
-          onClick={() => toggleSourceMode("local")}
-        >
-          <Music size={16} />
-          <span>Local MP3 (Auto-Fallback)</span>
-        </button>
-        <button
-          className={`source-btn ${!useLocalAudio ? "active" : ""}`}
-          onClick={() => toggleSourceMode("youtube")}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: "16px" }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z"/><path d="m10 15 5-3-5-3v6z" fill="currentColor"/></svg>
-          <span>YouTube Player</span>
-        </button>
-      </div>
-
-
-
-      {/* 4.5. Creator Diagnostic & Calibration Trigger Button */}
-      <button 
-        className="diagnose-trigger"
-        onClick={() => setShowDiagnostic(!showDiagnostic)}
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        <span>{showDiagnostic ? "Hide Creator Diagnostic Panel" : "Open Creator Diagnostic & Calibration"}</span>
-      </button>
+      {/* 2. Dynamic Source Selector (Developer Only) */}
+      {showDiagnostic && (
+        <div className="source-switcher">
+          <button
+            className={`source-btn ${useLocalAudio ? "active" : ""}`}
+            onClick={() => toggleSourceMode("local")}
+          >
+            <Music size={16} />
+            <span>Local MP3 (Auto-Fallback)</span>
+          </button>
+          <button
+            className={`source-btn ${!useLocalAudio ? "active" : ""}`}
+            onClick={() => toggleSourceMode("youtube")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: "16px" }}><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z"/><path d="m10 15 5-3-5-3v6z" fill="currentColor"/></svg>
+            <span>YouTube Player</span>
+          </button>
+        </div>
+      )}
 
       {/* 4.6. Creator Diagnostic & Calibration Panel */}
       {showDiagnostic && (
@@ -996,39 +1032,57 @@ export default function App() {
         </div>
       </div>
 
-      {/* 8. Custom bottom touch controls */}
+      {/* 7.5. Public Tapping Deck (Clean & Sleek for Tappers) */}
+      <div className="glass-panel" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+        <button
+          className="btn-diagnose-tap"
+          onClick={handleTapOnOne}
+          style={{ width: "100%", height: "80px", borderRadius: "16px", border: "3px solid #8b5cf6" }}
+        >
+          <span style={{ fontSize: "1.2rem", fontWeight: "800" }}>TAP ON "1"</span>
+          <span style={{ fontSize: "0.65rem", opacity: 0.8, fontWeight: "400" }}>Tap every time you hear count 1</span>
+        </button>
+
+        {rawTaps.length > 0 && (
+          <button
+            className="btn-diagnose-action primary"
+            onClick={handleSaveToDisk}
+            style={{
+              width: "100%",
+              minHeight: "44px",
+              background: anchors.length > 0 ? "linear-gradient(135deg, #10b981, #059669)" : "rgba(255,255,255,0.05)",
+              boxShadow: anchors.length > 0 ? "0 4px 12px rgba(16, 185, 129, 0.25)" : "none",
+              border: anchors.length > 0 ? "none" : "1px solid rgba(255, 255, 255, 0.1)",
+              color: anchors.length > 0 ? "#fff" : "#9ca3af",
+              fontWeight: "800",
+              textTransform: "uppercase",
+              borderRadius: "12px",
+              letterSpacing: "0.5px"
+            }}
+            title={anchors.length > 0 ? "Save the normalized beatmap permanently to disk" : "Taps are automatically compiled in the background"}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px" }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            {anchors.length > 0 ? "Save Calibration to Disk" : "Taps Recorded (Auto-Normalizing...)"}
+          </button>
+        )}
+      </div>
+
+      {/* 8. Custom bottom touch controls (Simplified Play/Pause Only) */}
       <div className="glass-panel" style={{ marginTop: "auto", padding: "16px" }}>
         <div className="controls-panel">
-          <button className="btn-touch" onClick={handleRewind} title="Rewind 10s">
-            <RotateCcw size={20} />
-            <span>-10s</span>
-          </button>
-
-          <button className="btn-touch btn-play" onClick={handlePlayToggle}>
+          <button className="btn-touch btn-play" onClick={handlePlayToggle} style={{ width: "100%", flex: "none" }}>
             {isActuallyPlaying ? (
               <>
                 <Pause size={20} fill="#fff" />
-                <span>Pause</span>
+                <span>Pause Song</span>
               </>
             ) : (
               <>
                 <Play size={20} fill="#fff" />
-                <span>Play</span>
+                <span>Play Song</span>
               </>
             )}
           </button>
-
-          <div className="speed-toggle-container">
-            {[0.5, 0.75, 1.0].map((rate) => (
-              <button
-                key={rate}
-                className={`speed-option ${playbackRate === rate ? "active" : ""}`}
-                onClick={() => handleSpeedChange(rate)}
-              >
-                {rate}x
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
