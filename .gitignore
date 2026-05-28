@@ -46,3 +46,11 @@ dist/
 /*.docx
 /*.zip
 /*.tar.gz
+
+# PRD Specific Git Hygiene
+# Ignore all JSON and XML files to prevent local test outputs from polluting git history.
+*.json
+*.xml
+
+# Explicitly allow committing production song beat-maps
+!public/songs/*.json
