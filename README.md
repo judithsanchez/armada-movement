@@ -14,9 +14,22 @@ An interactive, serverless ear-training tool and rhythm game designed for Salsa 
 
 ### 2. Development Workflow Rules
 * **TDD (Test-Driven Development)**: All core logic (sync math, scoring engines, combo calculations) must be built and validated via Test-Driven Development (TDD) using **Vitest**.
-* **Feature Branching**: Do all work on clean feature branches (`git checkout -b feature/name`) and merge through Pull Requests.
+* **Feature Branching Policy**: All work must be performed on dedicated feature branches. Branch names must strictly mention the issue number and title in lowercase separated by hyphens, following the pattern: `issue-[number]-[hyphenated-issue-title]` (e.g. `issue-3-typescript-environment-setup`). Merge exclusively via Pull Requests.
 * **Documentation Rule**: AI agents (including Antigravity, Codex, etc.) are strictly prohibited from touching or editing documentation files (`README.md`, `salsa_rhythm_prd_mvp.md`) during the step-by-step feature coding loop. Documentation files are ONLY allowed to be modified or expanded at the very end of a fully completed and tested task before a final commit is prepared, or when explicitly requested by the user.
 * **Git Hygiene**: Keep `*.json` test maps or Rekordbox XML dumps uncommitted. Verify they are caught by `.gitignore`.
+
+---
+
+## Repository Architecture & Branching
+* **Primary Branch**: `main` (the production-ready, stable branch deployed to GitHub Pages).
+* **Branching Convention**: `issue-[number]-[hyphenated-title]` (strictly enforced).
+* **Deployments**: Pushes or merges to the `main` branch trigger automated compilation and static deployment.
+
+---
+
+## Configured GitHub Actions
+1. **GitHub Pages Deployment Action**: Automated build-and-deploy pipeline that compiles React static production assets from the `main` branch and publishes them directly to the live GitHub Pages hosting environment.
+2. **Weekly Link Rot & Embed Compliance Action**: Scheduled weekly cron check workflow. It parses the `youtubeId` fields of all beatmap files in `public/songs/*.json`, checks the YouTube Data API to verify that the video remains audible, live, and embed-eligible, and opens high-priority GitHub issues for any dead links.
 
 ---
 
@@ -25,6 +38,7 @@ An interactive, serverless ear-training tool and rhythm game designed for Salsa 
 * **Hosting**: GitHub Pages
 * **Sync Engine**: Internal dead-reckoning stopwatch hook (`useSyncEngine.js`) synced to the YouTube IFrame API
 * **Analysis Pipeline**: Python 3.12 (`librosa`, `aubio`, `madmom`) for beat-mapping research and percussion stem isolation
+
 
 ---
 

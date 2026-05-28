@@ -68,6 +68,7 @@ To prevent timing regressions and type mismatches, enforce the following type co
 ## 6. Git Hygiene & AI Agent Guidelines
 - **TDD (Test-Driven Development)**: Utilize TDD for all core calculations (scoring, timing filters, and grid shift mathematics). Write unit tests *before* writing execution code.
 - **Git Hygiene**:
+  - **Branching Policy**: All work must be performed on dedicated feature branches. Branch names must strictly mention the issue number and title in lowercase separated by hyphens, following the pattern: `issue-[number]-[hyphenated-issue-title]` (e.g., `issue-3-typescript-environment-setup`).
   - Keep test scripts and XML dumps ignored.
   - Allow production beatmaps under `/public/songs/` to be committed by ensuring `.gitignore` unignores them explicitly:
     ```git
