@@ -54,3 +54,6 @@ dist/
 
 # Explicitly allow committing production song beat-maps
 !public/songs/*.json
+
+# Explicitly allow committing TypeScript project configuration
+!tsconfig.json

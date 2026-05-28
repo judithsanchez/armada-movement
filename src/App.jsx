@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSyncEngine } from "./hooks/useSyncEngine";
+import { isDevMode } from "./config/env";
 import { Play, Pause, RotateCcw, Music, ArrowLeft } from "lucide-react";
 
 // ==========================================================================
@@ -1204,6 +1205,10 @@ export default function App() {
   };
 
   const handleHeaderClick = () => {
+    if (!isDevMode) {
+      return;
+    }
+
     headerClicksRef.current += 1;
     if (headerClicksRef.current >= 5) {
       setShowDiagnostic(prev => !prev);
@@ -1215,7 +1220,7 @@ export default function App() {
   // Check URL parameters for ?dev=true to auto-unlock dev features
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("dev") === "true") {
+    if (isDevMode && params.get("dev") === "true") {
       setShowDiagnostic(true);
       showToast("🛠️ Developer Mode Unlocked via URL!");
     }
