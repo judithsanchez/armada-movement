@@ -75,3 +75,22 @@ To prevent timing regressions and type mismatches, enforce the following type co
     !public/songs/*.json
     ```
 - **Documentation Lock**: **DO NOT** edit documentation (`README.md`, `salsa_rhythm_prd_mvp.md`, `dev_tool_prd.md`, or this `AGENTS.md`) during the step-by-step feature coding loops. You may ONLY update documentation at the very end of a fully completed and verified task.
+
+---
+
+## 7. Link Rot & Copyright Defenses
+- **Weekly Check Workflow**: Maintain a `.github/workflows/link-rot-check.yml` GitHub Action.
+- **"Report Broken Audio" Link**: Embed the pre-formatted report link at the bottom of standard user control panels. Ensure it pre-fills the issue title with `Broken Audio: [SongTitle]` and the body with metadata.
+
+---
+
+## 8. Rekordbox XML ETL Pipeline
+- **Script Location**: Keep parser utilities localized in the `/scripts` directory (e.g., `scripts/rekordbox-etl.ts`).
+- **Standard Beatmap Output**: Ensure it directly maps Rekordbox cues to the new type contracts (`BeatmapSchema`) and outputs valid, human-readable JSON files into `public/songs/`.
+
+---
+
+## 9. Production Bundler Stripping
+- **Zero Leakage**: All dev-only calibrator components must be loaded dynamically via conditional lazy loading using `import.meta.env.VITE_DEV_MODE === 'true'`.
+- **Tree-Shaking Validation**: During `vite build`, verify that the resulting static JS bundles do not contain any dev calibration UI templates or tap-matching calculations.
+
