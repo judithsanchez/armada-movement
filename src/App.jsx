@@ -10,7 +10,9 @@ import AudioShield from "./components/AudioShield";
 import Visualizer from "./components/Visualizer";
 import GameCanvas from "./components/GameCanvas";
 import DevCalibrator from "./components/DevCalibrator";
-
+import RoadmapScrubber from "./components/RoadmapScrubber";
+import CalibrationTapDeck from "./components/CalibrationTapDeck";
+import DevCalibrationPanel from "./components/DevCalibrationPanel";
 
 // ==========================================================================
 // Piecewise-Linear Warping Helper Algorithms
@@ -816,6 +818,17 @@ export default function App() {
     showToast("🔄 Reset all anchors and taps. Restored original raw grid.");
   };
 
+  const handleClearTaps = () => {
+    setRawTaps([]);
+    setAnchors([]);
+    setCalibrationStats(null);
+    setEstimatedDelay(null);
+    if (songData?.metadata?.youtubeId) {
+      localStorage.removeItem(`armada_raw_taps_${songData.metadata.youtubeId}`);
+    }
+    showToast("🔄 Taps cleared & visual shield lifted!");
+  };
+
   // Skip audio to ~30s so user can bypass the difficult intro
   const handleSkipIntro = () => {
     try {
@@ -1201,8 +1214,14 @@ export default function App() {
     setBreaks(updated);
     showToast("❌ Removed break.");
   };
-
-
+  const handleExitDev = () => {
+    setShowDiagnostic(false);
+    setRawTaps([]);
+    setAnchors([]);
+    setCalibrationStats(null);
+    setEstimatedDelay(null);
+    showToast("🔒 Dev Panel Locked!");
+  };
 
   const handleHeaderClick = () => {
     if (!isDevMode) {
@@ -1424,114 +1443,58 @@ export default function App() {
             />
           </>
         ) : (
-          <>
-            {/* Left Workspace Column: Video, Tapping/Flash decks, bottom touchbars */}
-            <div className="left-workspace-column">
+          <div className="left-workspace-column">
               
-              {/* Defensive IFrame Player & Overlay Protection */}
-              <div className="video-wrapper">
-                <div key={songData?.metadata?.youtubeId || "yt-player"} id="yt-player"></div>
-                <AudioShield onPlayToggle={handlePlayToggle} />
-              </div>
-
-              {/* Dynamic Interface: Learn Mode beats pulses OR Practice Mode gamified tapping zone */}
-              {mode === "practice" ? (
-                <GameCanvas 
-                  key={calibratedSongData?.metadata?.youtubeId || songData?.metadata?.youtubeId}
-                  songData={calibratedSongData || songData}
-                  currentTime={currentTime}
-                  isPlaying={isActuallyPlaying}
-                  onPlayToggle={handlePlayToggle}
-                />
-              ) : (
-                <Visualizer 
-                  danceStyle={songData?.metadata?.danceStyle || "salsa"}
-                  currentTime={currentTime}
-                  introEnd={introEnd}
-                  currentBeat={currentBeat}
-                  activeSection={activeSection}
-                  activeBreak={activeBreak}
-                />
-              )}
-
-              {/* Segmented Roadmap Progress Scrubber */}
-              <div className="glass-panel" style={{ padding: "14px 16px", marginBottom: "0px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "600", color: "#9ca3af", marginBottom: "8px" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    Song Roadmap
-                    {nextSection && timeToNextSection <= 10 && (
-                      <span style={{ fontSize: "0.65rem", color: "#fb7185", marginLeft: "8px", fontWeight: "bold" }}>
-                        ➡️ {nextSection.name} in {timeToNextSection.toFixed(1)}s
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ color: "#a78bfa" }}>
-                    {Math.floor(currentTime / 60)}:{(Math.floor(currentTime % 60)).toString().padStart(2, "0")} / {Math.floor(videoDuration / 60)}:{(Math.floor(videoDuration % 60)).toString().padStart(2, "0")}
-                  </span>
-                </div>
-                
-                <div className="roadmap-scrubber-wrapper">
-                  <div 
-                    className="roadmap-scrubber-track"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const clickPercent = (e.clientX - rect.left) / rect.width;
-                      const targetTime = clickPercent * videoDuration;
-                      throttledSeek(targetTime, true);
-                    }}
-                  >
-                    {/* Dynamic Intro Highlight Segment */}
-                    <div 
-                      className="roadmap-segment segment-intro"
-                      style={{
-                        left: `${(introStart / videoDuration) * 100}%`,
-                        width: `${((introEnd - introStart) / videoDuration) * 100}%`
-                      }}
-                      title="Song Intro Region"
-                    ></div>
-
-                    {/* Dynamic Section markers */}
-                    {sectionsList.map((sec, idx) => (
-                      <div
-                        key={idx}
-                        className="roadmap-section-marker"
-                        style={{ left: `${(sec.startTimestamp / videoDuration) * 100}%` }}
-                        title={`${sec.name} Start`}
-                      ></div>
-                    ))}
-
-                    {/* Dynamic Breaks highlight segments */}
-                    {breaks.map((b) => (
-                      <div
-                        key={b.id}
-                        className="roadmap-segment segment-break"
-                        style={{
-                          left: `${(b.startTimestamp / videoDuration) * 100}%`,
-                          width: `${((b.endTimestamp - b.startTimestamp) / videoDuration) * 100}%`
-                        }}
-                        title={`Cierre Stop: ${b.startTimestamp}s - ${b.endTimestamp}s`}
-                      ></div>
-                    ))}
-
-                    {/* Glowing Playhead Handle */}
-                    <div 
-                      className="roadmap-playhead"
-                      style={{ left: `${(currentTime / videoDuration) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Unified Touch Controlbar */}
-              <ControlBar 
-                isActuallyPlaying={isActuallyPlaying}
-                onPlayToggle={handlePlayToggle}
-                playbackRate={playbackRate}
-                onSpeedChange={handleSpeedChange}
-                onRewind={handleRewind}
-              />
+            {/* Defensive IFrame Player & Overlay Protection */}
+            <div className="video-wrapper">
+              <div key={songData?.metadata?.youtubeId || "yt-player"} id="yt-player"></div>
+              <AudioShield onPlayToggle={handlePlayToggle} />
             </div>
-          </>
+
+            {/* Dynamic Interface: Learn Mode beats pulses OR Practice Mode gamified tapping zone */}
+            {mode === "practice" ? (
+              <GameCanvas 
+                key={calibratedSongData?.metadata?.youtubeId || songData?.metadata?.youtubeId}
+                songData={calibratedSongData || songData}
+                currentTime={currentTime}
+                isPlaying={isActuallyPlaying}
+                onPlayToggle={handlePlayToggle}
+              />
+            ) : (
+              <Visualizer 
+                danceStyle={songData?.metadata?.danceStyle || "salsa"}
+                currentTime={currentTime}
+                introEnd={introEnd}
+                currentBeat={currentBeat}
+                activeSection={activeSection}
+                activeBreak={activeBreak}
+              />
+            )}
+
+            {/* Segmented Roadmap Progress Scrubber */}
+            <RoadmapScrubber
+              currentTime={currentTime}
+              videoDuration={videoDuration}
+              introStart={introStart}
+              introEnd={introEnd}
+              nextSection={nextSection}
+              timeToNextSection={timeToNextSection}
+              showDiagnostic={showDiagnostic}
+              editorSections={editorSections}
+              sectionsList={sectionsList}
+              breaks={breaks}
+              onSeek={throttledSeek}
+            />
+
+            {/* Unified Touch Controlbar */}
+            <ControlBar 
+              isActuallyPlaying={isActuallyPlaying}
+              onPlayToggle={handlePlayToggle}
+              playbackRate={playbackRate}
+              onSpeedChange={handleSpeedChange}
+              onRewind={handleRewind}
+            />
+          </div>
         )}
       </div>
 
