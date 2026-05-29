@@ -157,7 +157,6 @@ const _convertToDatabaseSections = (editorSecs) => {
 
 export default function App() {
   const [songData, setSongData] = useState(null);
-  const [editorSections, setEditorSections] = useState([]);
   const [activeEditingSectionId, setActiveEditingSectionId] = useState(null);
   const [viewingDevDashboard, setViewingDevDashboard] = useState(false);
   
@@ -238,6 +237,81 @@ export default function App() {
     }
   }, [showDiagnostic]);
 
+  // 1. Sync React Page View States to Browser URL Query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    
+    if (viewingDevDashboard) {
+      params.set("view", "dashboard");
+      params.delete("song");
+      params.delete("calibrate");
+    } else if (!currentSong) {
+      params.delete("view");
+      params.delete("song");
+      params.delete("calibrate");
+    } else {
+      params.delete("view");
+      params.set("song", currentSong.youtubeId);
+      if (showDiagnostic) {
+        params.set("calibrate", "true");
+      } else {
+        params.delete("calibrate");
+      }
+    }
+    
+    const newRelativePathQuery = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+    // Prevent duplicate entries in history stack if URL is already identical
+    if (window.location.search !== (params.toString() ? "?" + params.toString() : "")) {
+      window.history.pushState(null, "", newRelativePathQuery);
+    }
+  }, [viewingDevDashboard, currentSong, showDiagnostic]);
+
+  // 2. Startup Restoration & Popstate (Browser Back/Forward Buttons) sync
+  useEffect(() => {
+    const handleNavigationRestore = () => {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view");
+      const songId = params.get("song");
+      const calibrate = params.get("calibrate") === "true";
+
+      if (view === "dashboard") {
+        setViewingDevDashboard(true);
+        setCurrentSong(null);
+        setShowDiagnostic(false);
+      } else if (songId) {
+        setViewingDevDashboard(false);
+        
+        // Asynchronously load the song metadata from the catalog and select it
+        if (!currentSong || currentSong.youtubeId !== songId) {
+          fetch("songs/catalog.json")
+            .then(res => res.json())
+            .then(catalog => {
+              const matched = catalog.find(s => s.youtubeId === songId);
+              if (matched) {
+                handleSelectSong(matched);
+                if (calibrate) {
+                  setShowDiagnostic(true);
+                }
+              }
+            })
+            .catch(err => console.error("[Navigation] Popstate catalog restore failed:", err));
+        } else {
+          setShowDiagnostic(calibrate);
+        }
+      } else {
+        setViewingDevDashboard(false);
+        setCurrentSong(null);
+        setShowDiagnostic(false);
+      }
+    };
+
+    // Run once on mount to handle initial URL restoration
+    handleNavigationRestore();
+
+    window.addEventListener("popstate", handleNavigationRestore);
+    return () => window.removeEventListener("popstate", handleNavigationRestore);
+  }, [currentSong]);
+
   const handleSelectSong = (song) => {
     setLoadingSong(true);
     
@@ -268,26 +342,6 @@ export default function App() {
         setIntroEnd(data.metadata?.introEnd || 0.0);
         setBreaks(data.breaks || []);
         
-        // Populate editor sections from LocalStorage or song JSON
-        const youtubeId = song.youtubeId;
-        const duration = data.metadata?.duration || 300.0;
-        const backupSections = localStorage.getItem(`armada_sections_${youtubeId}`);
-        if (backupSections) {
-          try {
-            const parsed = JSON.parse(backupSections);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setEditorSections(parsed);
-              console.log("[App] Restored sections from LocalStorage backup.");
-            } else {
-              setEditorSections(populateEditorSections(data.sections, duration));
-            }
-          } catch {
-            setEditorSections(populateEditorSections(data.sections, duration));
-          }
-        } else {
-          setEditorSections(populateEditorSections(data.sections, duration));
-        }
-
         setCurrentSong(song);
         setLoadingSong(false);
 
@@ -1042,12 +1096,6 @@ export default function App() {
       });
   };
 
-  // Backup sections to LocalStorage
-  useEffect(() => {
-    if (editorSections.length > 0 && songData?.metadata?.youtubeId) {
-      localStorage.setItem(`armada_sections_${songData.metadata.youtubeId}`, JSON.stringify(editorSections));
-    }
-  }, [editorSections, songData]);
 
   const handleUpdateSectionTimes = (id, field, value) => {
     const numericVal = parseFloat(parseFloat(value).toFixed(2));
@@ -1523,7 +1571,7 @@ export default function App() {
               nextSection={nextSection}
               timeToNextSection={timeToNextSection}
               showDiagnostic={showDiagnostic}
-              editorSections={editorSections}
+              editorSections={sectionsList}
               sectionsList={sectionsList}
               breaks={breaks}
               onSeek={throttledSeek}

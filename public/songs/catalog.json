@@ -14,7 +14,7 @@
     "artist": "Eduardo Moreno & Okocán",
     "danceStyle": "salsa",
     "youtubeId": "RWRHAVGoEiw",
-    "bpm": 190.0,
+    "bpm": 190,
     "difficulty": "medium"
   },
   {
@@ -23,7 +23,17 @@
     "artist": "Grupo Extra",
     "danceStyle": "bachata",
     "youtubeId": "IFfLjoKsHX0",
-    "bpm": 138.0,
+    "bpm": 138,
     "difficulty": "easy"
+  },
+  {
+    "id": "song-G_FuyWxTapo",
+    "songTitle": "Chacha",
+    "artist": "Jean & Alex, Pinto Picasso",
+    "danceStyle": "salsa",
+    "youtubeId": "G_FuyWxTapo",
+    "bpm": 129.2,
+    "difficulty": "medium",
+    "isCalibrated": false
   }
 ]

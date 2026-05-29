@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-05-29T08:02:02.571Z",
+  "youtubeId": "G_FuyWxTapo",
+  "globalTapLog": [],
+  "reactionDelayMs": 220,
+  "sections": [
+    {
+      "id": "sec-0",
+      "name": "Brass/Melodic Section 1",
+      "emoji": "🎺",
+      "startTimestamp": 0.139,
+      "endTimestamp": 2.299,
+      "focusInstrument": "brass",
+      "beatCountType": "salsa-8",
+      "displayCounts": true,
+      "localOffsetMs": 0
+    }
+  ]
+}

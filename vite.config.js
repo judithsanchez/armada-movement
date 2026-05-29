@@ -17,17 +17,9 @@ export default defineConfig({
           const pathname = parsedUrl.pathname;
 
           const saveToBoth = (fileName, fileData) => {
-            // 1. Write back to WSL Native Environment
-            const wslPath = path.join(__dirname, 'public', 'songs', fileName);
-            fs.writeFileSync(wslPath, JSON.stringify(fileData, null, 2), 'utf8');
-            console.log(`[Developer API] Successfully saved to WSL: ${wslPath}`);
-
-            // 2. Dual-Write back to Windows Mount Environment (if available)
-            const winPath = `/mnt/c/Users/judit/Documents/dev/armada-movement/public/songs/${fileName}`;
-            if (fs.existsSync('/mnt/c/Users/judit/Documents/dev/armada-movement')) {
-              fs.writeFileSync(winPath, JSON.stringify(fileData, null, 2), 'utf8');
-              console.log(`[Developer API] Dual-wrote to Windows: ${winPath}`);
-            }
+            const filePath = path.join(__dirname, 'public', 'songs', fileName);
+            fs.writeFileSync(filePath, JSON.stringify(fileData, null, 2), 'utf8');
+            console.log(`[Developer API] Successfully saved: ${filePath}`);
           };
 
           if (pathname === '/api/save-beatmap' && req.method === 'POST') {
@@ -40,8 +32,8 @@ export default defineConfig({
 
                 // File 1: Original baseline machine analysis (Write ONCE, never overwrite)
                 const origFileName = `${songId}_original.json`;
-                const wslOrigCheck = path.join(__dirname, 'public', 'songs', origFileName);
-                if (!fs.existsSync(wslOrigCheck)) {
+                const origCheckPath = path.join(__dirname, 'public', 'songs', origFileName);
+                if (!fs.existsSync(origCheckPath)) {
                   saveToBoth(origFileName, originalBeatmap);
                   console.log(`[Developer API] Wrote baseline machine analysis backup: ${origFileName}`);
                 } else {
