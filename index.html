@@ -4,7 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>tmp-vite</title>
+    <title>Salsa Rhythm Hub</title>
+    <script>
+      // GitHub Pages SPA routing: restore path encoded by 404.html redirect.
+      // Runs before React mounts so the router sees the correct pathname.
+      (function () {
+        var p = new URLSearchParams(window.location.search).get('p');
+        if (p) {
+          var base = '/armada-movement';
+          window.history.replaceState(null, '', base + p);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

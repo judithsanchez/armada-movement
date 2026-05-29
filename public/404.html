@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Salsa Rhythm Hub</title>
+    <script>
+      // GitHub Pages SPA routing fallback.
+      // When GitHub Pages gets a request for a path that has no matching file
+      // (e.g. /armada-movement/song/ABC123) it serves this 404.html instead.
+      // We encode the intended path as a query param and redirect to the root,
+      // where index.html will decode it and restore the URL before React boots.
+      var base = '/armada-movement';
+      var path = window.location.pathname.replace(base, '') || '/';
+      var search = window.location.search;
+      var hash = window.location.hash;
+      var redirect = base + '/?p=' + encodeURIComponent(path + search + hash);
+      window.location.replace(redirect);
+    </script>
+  </head>
+  <body></body>
+</html>

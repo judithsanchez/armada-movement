@@ -238,17 +238,20 @@ export default function App() {
     }
   }, [showDiagnostic]);
 
-  // 1. Sync React state → browser URL (pathname-based)
+  // Vite injects BASE_URL at build time: '/' locally, '/armada-movement/' on GitHub Pages
+  const BASE = (import.meta.env.BASE_URL || '/').replace(/\/$/, ''); // strip trailing slash
+
+  // 1. Sync React state → browser URL (pathname-based, base-aware)
   useEffect(() => {
     let targetPath;
     if (viewingDevDashboard) {
-      targetPath = "/dashboard";
+      targetPath = BASE + "/dashboard";
     } else if (currentSong) {
       targetPath = showDiagnostic
-        ? `/song/${currentSong.youtubeId}/calibrate`
-        : `/song/${currentSong.youtubeId}`;
+        ? `${BASE}/song/${currentSong.youtubeId}/calibrate`
+        : `${BASE}/song/${currentSong.youtubeId}`;
     } else {
-      targetPath = "/";
+      targetPath = BASE + "/" || "/";
     }
 
     if (window.location.pathname !== targetPath) {
@@ -259,10 +262,12 @@ export default function App() {
   // 2. Restore state from URL on mount + handle browser back/forward
   useEffect(() => {
     const handleNavigationRestore = () => {
-      const pathname = window.location.pathname;
+      // Strip base prefix to get the route segment
+      const rawPath = window.location.pathname;
+      const route = rawPath.startsWith(BASE) ? rawPath.slice(BASE.length) || '/' : rawPath;
 
       // /dashboard
-      if (pathname === "/dashboard") {
+      if (route === "/dashboard") {
         setViewingDevDashboard(true);
         setCurrentSong(null);
         setShowDiagnostic(false);
@@ -270,7 +275,7 @@ export default function App() {
       }
 
       // /song/:youtubeId  or  /song/:youtubeId/calibrate
-      const songMatch = pathname.match(/^\/song\/([^/]+)(\/calibrate)?$/);
+      const songMatch = route.match(/^\/song\/([^/]+)(\/calibrate)?$/);
       if (songMatch) {
         const songId = songMatch[1];
         const calibrate = Boolean(songMatch[2]);
@@ -286,7 +291,7 @@ export default function App() {
                 if (calibrate) setShowDiagnostic(true);
               } else {
                 // Song not found — fall back to root
-                window.history.replaceState(null, "", "/");
+                window.history.replaceState(null, "", BASE + "/" || "/");
                 setCurrentSong(null);
               }
             })
