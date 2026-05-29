@@ -1,20 +1,27 @@
 import os
 import json
 import time
+import argparse
 import numpy as np
 import librosa
 import librosa.segment
 
 def main():
-    audio_path = "/home/judithsanchez/dev/armada-movement/POBRE DIABLO  Ronald Borjas ( VIDEO OFICIAL ).mp3"
-    output_dir = "/home/judithsanchez/dev/armada-movement/public/songs"
+    parser = argparse.ArgumentParser(description="Advanced Salsa Audio Beat Tracker and Structure Analyzer")
+    parser.add_argument("--audio", required=True, help="Path to the audio file to analyze")
+    parser.add_argument("--output", required=True, help="Path where output JSON beatmap should be written")
+    args = parser.parse_args()
+
+    audio_path = args.audio
+    output_path = args.output
     
     if not os.path.exists(audio_path):
         print(f"[ERROR] Audio file not found at: {audio_path}")
         return
         
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "66HCBysrJS8.json")
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     
     print("[SALSA-AI] Loading audio file...")
     start_time = time.time()
@@ -141,21 +148,94 @@ def main():
             "timestamp": round(float(t), 3),
             "beat": beat_count
         })
-        
+
+    # Read existing metadata if available
+    metadata = {
+        "songTitle": "Pobre Diablo",
+        "artist": "Ronald Borjas",
+        "danceStyle": "salsa",
+        "youtubeId": "66HCBysrJS8",
+        "difficulty": "hard",
+        "bpm": round(tempo, 2)
+    }
+    
+    existing_id = None
+    if os.path.exists(output_path):
+        try:
+            with open(output_path, "r", encoding="utf-8") as f:
+                existing_data = json.load(f)
+                if "metadata" in existing_data and existing_data["metadata"]:
+                    metadata.update(existing_data["metadata"])
+                elif "title" in existing_data:
+                    metadata["songTitle"] = existing_data.get("title", metadata["songTitle"])
+                    metadata["artist"] = existing_data.get("artist", metadata["artist"])
+                    metadata["youtubeId"] = existing_data.get("youtubeId", metadata["youtubeId"])
+                    metadata["difficulty"] = existing_data.get("difficulty", metadata["difficulty"])
+                    metadata["danceStyle"] = existing_data.get("danceStyle", "salsa")
+                if "id" in existing_data:
+                    existing_id = existing_data["id"]
+        except Exception as e:
+            print(f"[SALSA-AI WARNING] Could not read existing JSON: {e}")
+
+    dance_style = metadata.get("danceStyle", "salsa").lower()
+    default_beat_count = "bachata-4" if dance_style == "bachata" else "salsa-8"
+
+    # Convert sections to new schema
+    formatted_sections = []
+    for idx, sec in enumerate(sections):
+        formatted_sections.append({
+            "id": f"sec-{idx}",
+            "name": sec["name"] or f"Section {idx + 1}",
+            "emoji": sec["emoji"] or "🎵",
+            "startTimestamp": sec["startTimestamp"],
+            "endTimestamp": sections[idx + 1]["startTimestamp"] if idx < len(sections) - 1 else round(float(duration), 2),
+            "focusInstrument": sec["focus"],
+            "beatCountType": default_beat_count,
+            "displayCounts": True,
+            "localOffsetMs": 0
+        })
+
     # Assemble complete schema JSON
     schema_json = {
-        "id": "song-salsa-pobre-diablo",
-        "schemaVersion": "1.1",
-        "metadata": {
-            "songTitle": "Pobre Diablo",
-            "artist": "Ronald Borjas",
-            "danceStyle": "salsa",
-            "youtubeId": "66HCBysrJS8",
-            "bpm": round(tempo, 2),
-            "difficulty": "hard"
+        "id": existing_id or f"song-{metadata['youtubeId']}",
+        "title": metadata["songTitle"],
+        "artist": metadata["artist"],
+        "youtubeId": metadata["youtubeId"],
+        "youtubeUrl": f"https://www.youtube.com/watch?v={metadata['youtubeId']}",
+        "difficulty": metadata["difficulty"].lower(),
+        "isCalibrated": False,
+        
+        "rawAnalysis": {
+            "estimatedBpm": round(tempo, 2),
+            "rawBeats": [round(float(t), 3) for t in beat_times],
+            "processedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         },
-        "sections": sections,
-        "events": [],
+        "globalTapLog": [],
+        "globalReactionDelayMs": 200,
+        "calibratedBeatmap": {
+            "bpm": round(tempo, 2),
+            "beats": beats_list,
+            "sections": formatted_sections
+        },
+        
+        # Flat compatibility fields:
+        "metadata": {
+            "songTitle": metadata["songTitle"],
+            "artist": metadata["artist"],
+            "danceStyle": dance_style,
+            "youtubeId": metadata["youtubeId"],
+            "bpm": round(tempo, 2),
+            "difficulty": metadata["difficulty"].lower()
+        },
+        "sections": [
+            {
+                "name": sec["name"],
+                "startTimestamp": sec["startTimestamp"],
+                "focus": sec["focus"],
+                "emoji": sec["emoji"]
+            }
+            for sec in sections
+        ],
         "beats": beats_list
     }
     
