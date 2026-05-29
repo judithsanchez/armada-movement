@@ -1,21 +1,36 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, RefObject } from "react";
+import { Beat, Section, BeatmapSchema } from "../types/beatmap";
 
-export function useSyncEngine(player, songData, localAudioRef, useLocalAudio, latencyOffset = 0, gridShift = 0) {
-  const [currentTime, setCurrentTime] = useState(0);
-  const [currentBeat, setCurrentBeat] = useState(null); // { timestamp, beat }
-  const [activeSection, setActiveSection] = useState(null); // { name, startTimestamp, focus, emoji }
+interface SyncEngineResult {
+  currentTime: number;
+  currentBeat: Beat | null;
+  activeSection: Section | null;
+  synchronizeAnchors: () => void;
+}
+
+export function useSyncEngine(
+  player: any,
+  songData: BeatmapSchema | null,
+  localAudioRef: RefObject<HTMLAudioElement | null>,
+  useLocalAudio: boolean,
+  latencyOffset: number = 0,
+  gridShift: number = 0
+): SyncEngineResult {
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentBeat, setCurrentBeat] = useState<Beat | null>(null);
+  const [activeSection, setActiveSection] = useState<Section | null>(null);
 
   // Refs for real-time tracking (avoids stale closures)
-  const playerRef = useRef(player);
-  const songDataRef = useRef(songData);
-  const frameIdRef = useRef(null);
+  const playerRef = useRef<any>(player);
+  const songDataRef = useRef<BeatmapSchema | null>(songData);
+  const frameIdRef = useRef<number | null>(null);
 
   // Sync anchors for YouTube dead reckoning
-  const anchorYtTimeRef = useRef(0);
-  const anchorPerfTimeRef = useRef(0);
-  const playbackRateRef = useRef(1);
-  const isPlayingRef = useRef(false);
-  const lastDriftCheckRef = useRef(0);
+  const anchorYtTimeRef = useRef<number>(0);
+  const anchorPerfTimeRef = useRef<number>(0);
+  const playbackRateRef = useRef<number>(1);
+  const isPlayingRef = useRef<boolean>(false);
+  const lastDriftCheckRef = useRef<number>(0);
 
   useEffect(() => {
     playerRef.current = player;
@@ -49,7 +64,7 @@ export function useSyncEngine(player, songData, localAudioRef, useLocalAudio, la
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        console.log("[SyncEngine] Tab hidden: Aggressively pausing playback to prevent desync.");
+        console.log("[SyncEngine] Tab hidden: Pausing playback to prevent desync.");
         try {
           if (useLocalAudio && localAudioRef.current) {
             localAudioRef.current.pause();
@@ -62,7 +77,6 @@ export function useSyncEngine(player, songData, localAudioRef, useLocalAudio, la
         isPlayingRef.current = false;
       } else {
         console.log("[SyncEngine] Tab returned to view: Triggering complete resync.");
-        // Hard reset anchors
         setTimeout(synchronizeAnchors, 150);
       }
     };
@@ -121,12 +135,11 @@ export function useSyncEngine(player, songData, localAudioRef, useLocalAudio, la
       setCurrentTime(elapsed);
 
       // Apply AV Latency Compensation Offset (Shifts visual timeline relative to audio)
-      // If positive latencyOffset (e.g. 200ms Bluetooth lag), visual ticks are delayed to line up
       const visualTime = elapsed - (latencyOffset / 1000);
 
       // Match closest beat in JSON map
       if (sData && sData.beats && sData.beats.length > 0) {
-        let closest = null;
+        let closest: Beat | null = null;
         let minDiff = Infinity;
 
         // Asymmetric visual window: trigger beat highlight from 30ms before to 100ms after the timestamp
@@ -143,9 +156,8 @@ export function useSyncEngine(player, songData, localAudioRef, useLocalAudio, la
         }
 
         if (closest) {
-          // Apply Grid Shift Correction (Shifts 8-count beat cycle modularly)
-          // Allows instant realignment if "1" sounds on "3"
-          const shiftedBeatNum = ((closest.beat - 1 + gridShift + 8) % 8) + 1;
+          // Apply Grid Shift Correction (Shifts beat cycle modularly)
+          const shiftedBeatNum = (((closest.beat - 1 + gridShift + 8) % 8) + 1) as any;
           setCurrentBeat({
             ...closest,
             beat: shiftedBeatNum
