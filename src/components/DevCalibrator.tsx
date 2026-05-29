@@ -196,7 +196,7 @@ export default function DevCalibrator({
   // ── Slice at playhead ─────────────────────────────────────────────────
   const sliceAtPlayhead = () => {
     const sliceTime = parseFloat(currentTime.toFixed(3));
-    const MIN_GAP   = 0.1; // seconds — minimum distance from any boundary
+    const MIN_GAP   = 0.01; // seconds — just enough to prevent zero-length sections
 
     // No sections yet — initialise the full-song section first
     if (editorSections.length === 0) {
@@ -238,7 +238,7 @@ export default function DevCalibrator({
       s => sliceTime > s.startTimestamp + MIN_GAP && sliceTime < s.endTimestamp - MIN_GAP
     );
     if (targetIdx === -1) {
-      showToast("⚠️ Playhead is too close to an existing boundary (min 0.1s).");
+      showToast("⚠️ Playhead is at or past a section boundary — seek away from the edge and try again.");
       return;
     }
 
@@ -370,12 +370,12 @@ export default function DevCalibrator({
       // Arrow keys → seek ±5s
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        throttledSeek(Math.max(0, currentTime - 5), true);
+        throttledSeek(Math.max(0, currentTime - 2.5), true);
         return;
       }
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        throttledSeek(Math.min(duration, currentTime + 5), true);
+        throttledSeek(Math.min(duration, currentTime + 2.5), true);
         return;
       }
 
@@ -538,7 +538,7 @@ export default function DevCalibrator({
             <span style={{ fontSize: "0.65rem", color: "#4b5563" }}>
               <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>Space</kbd> play/pause
               {" · "}
-              <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>←→</kbd> seek 5s
+              <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>←→</kbd> seek 2.5s
               {" · "}
               <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>T</kbd> tap
             </span>
