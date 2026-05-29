@@ -1449,7 +1449,7 @@ export default function App() {
     <div className="app-container" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       
       {/* Upper Navigation & Skip Intro */}
-      {currentTime < introEnd && (
+      {showDiagnostic && currentTime < introEnd && (
         <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "16px", width: "100%" }}>
           <button 
             className="btn-step" 
