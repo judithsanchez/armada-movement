@@ -19,7 +19,7 @@ export function adaptToAgnosticSong(data: any, videoDuration: number = 300): Agn
       metadata: {
         songTitle: song.title,
         artist: song.artist,
-        danceStyle: song.calibratedBeatmap?.sections?.[0]?.beatCountType === "bachata-4" ? "bachata" : "salsa",
+        danceStyle: data.metadata?.danceStyle || data.danceStyle || (song.calibratedBeatmap?.sections?.some(s => s.beatCountType === "bachata-4") ? "bachata" : "salsa"),
         youtubeId: song.youtubeId,
         bpm: bpm,
         difficulty: song.difficulty,
