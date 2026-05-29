@@ -193,14 +193,14 @@ export default function DevCalibrator({
     applyVisualGridShifts(list, globalTapLog);
   };
 
-  // ── Slice at playhead ─────────────────────────────────────────────────────
+  // ── Slice at playhead ─────────────────────────────────────────────────
   const sliceAtPlayhead = () => {
     const sliceTime = parseFloat(currentTime.toFixed(3));
+    const MIN_GAP   = 0.1; // seconds — minimum distance from any boundary
 
-    // If no sections yet, initialise with a full-song section then slice
-    let base = editorSections;
-    if (base.length === 0) {
-      base = [{
+    // No sections yet — initialise the full-song section first
+    if (editorSections.length === 0) {
+      const initial: EditorSection = {
         id: `sec-${Date.now()}-full`,
         name: "Full Song",
         emoji: "🎵",
@@ -210,14 +210,35 @@ export default function DevCalibrator({
         beatCountType: "salsa-8",
         displayCounts: true,
         localOffsetMs: 0,
-      }];
+      };
+      // If playhead is at 0 we can't slice yet — just create the base section
+      if (sliceTime < MIN_GAP) {
+        syncSections([initial]);
+        setFocusedSectionId(initial.id);
+        showToast("🎵 Timeline initialised! Seek to a transition point and slice again.");
+        return;
+      }
+      // Playhead is somewhere useful — split immediately
+      const newSec: EditorSection = {
+        id: `sec-${Date.now()}`,
+        name: "New Section", emoji: "🎵",
+        startTimestamp: sliceTime, endTimestamp: duration,
+        focusInstrument: "", beatCountType: "salsa-8",
+        displayCounts: true, localOffsetMs: 0,
+      };
+      const split = [{ ...initial, endTimestamp: sliceTime }, newSec];
+      syncSections(split);
+      setFocusedSectionId(newSec.id);
+      showToast(`✂️ Sliced at ${formatTime(sliceTime)}`);
+      return;
     }
 
+    const base = editorSections;
     const targetIdx = base.findIndex(
-      s => sliceTime > s.startTimestamp + 0.5 && sliceTime < s.endTimestamp - 0.5
+      s => sliceTime > s.startTimestamp + MIN_GAP && sliceTime < s.endTimestamp - MIN_GAP
     );
     if (targetIdx === -1) {
-      showToast("⚠️ Playhead too close to an existing boundary (min 0.5s gap).");
+      showToast("⚠️ Playhead is too close to an existing boundary (min 0.1s).");
       return;
     }
 
@@ -331,22 +352,49 @@ export default function DevCalibrator({
   // ── Keyboard hotkeys ──────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === "INPUT" ||
-          (e.target as HTMLElement).tagName === "TEXTAREA" ||
-          (e.target as HTMLElement).tagName === "SELECT") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
+      // Space → Play / Pause
       if (e.code === "Space") {
         e.preventDefault();
-        handleTap();
+        if (player) {
+          try {
+            const state = player.getPlayerState?.();
+            if (state === 1) player.pauseVideo(); else player.playVideo();
+          } catch (err) { console.warn("Play toggle error:", err); }
+        }
+        return;
       }
+
+      // Arrow keys → seek ±5s
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        throttledSeek(Math.max(0, currentTime - 5), true);
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        throttledSeek(Math.min(duration, currentTime + 5), true);
+        return;
+      }
+
+      // M / Enter → Slice at playhead
       if (e.key === "m" || e.key === "M" || e.key === "Enter") {
         e.preventDefault();
         sliceAtPlayhead();
+        return;
+      }
+
+      // T → Tap downbeat (for calibration)
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        handleTap();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentTime, editorSections, globalTapLog, focusedSectionId]);
+  }, [currentTime, editorSections, globalTapLog, focusedSectionId, player, duration]);
 
   // ── Timeline click to seek ────────────────────────────────────────────────
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -484,8 +532,16 @@ export default function DevCalibrator({
                 cursor: "pointer",
               }}
             >
-              <Scissors size={12} /> Slice here <kbd style={{ background: "rgba(255,255,255,0.08)", borderRadius: "3px", padding: "0 3px", fontSize: "0.65rem" }}>M</kbd>
+              <Scissors size={12} /> Slice
+              <kbd style={{ background: "rgba(255,255,255,0.08)", borderRadius: "3px", padding: "0 3px", fontSize: "0.65rem" }}>M</kbd>
             </button>
+            <span style={{ fontSize: "0.65rem", color: "#4b5563" }}>
+              <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>Space</kbd> play/pause
+              {" · "}
+              <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>←→</kbd> seek 5s
+              {" · "}
+              <kbd style={{ background: "rgba(255,255,255,0.06)", borderRadius: "3px", padding: "0 3px" }}>T</kbd> tap
+            </span>
           </div>
         </div>
 
@@ -759,7 +815,7 @@ export default function DevCalibrator({
               TAP ON "1"
             </span>
             <span style={{ fontSize: "0.68rem", color: tapFlash ? "rgba(0,0,0,0.55)" : "#7c3aed" }}>
-              Spacebar anywhere
+              Click here or press <kbd style={{ background: "rgba(255,255,255,0.12)", borderRadius: "3px", padding: "0 3px" }}>T</kbd>
             </span>
           </button>
 
