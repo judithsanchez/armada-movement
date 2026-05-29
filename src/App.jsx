@@ -238,51 +238,44 @@ export default function App() {
     }
   }, [showDiagnostic]);
 
-  // 1. Sync React Page View States to Browser URL Query parameters
+  // 1. Sync React state → browser URL (pathname-based)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    
+    let targetPath;
     if (viewingDevDashboard) {
-      params.set("view", "dashboard");
-      params.delete("song");
-      params.delete("calibrate");
-    } else if (!currentSong) {
-      params.delete("view");
-      params.delete("song");
-      params.delete("calibrate");
+      targetPath = "/dashboard";
+    } else if (currentSong) {
+      targetPath = showDiagnostic
+        ? `/song/${currentSong.youtubeId}/calibrate`
+        : `/song/${currentSong.youtubeId}`;
     } else {
-      params.delete("view");
-      params.set("song", currentSong.youtubeId);
-      if (showDiagnostic) {
-        params.set("calibrate", "true");
-      } else {
-        params.delete("calibrate");
-      }
+      targetPath = "/";
     }
-    
-    const newRelativePathQuery = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
-    // Prevent duplicate entries in history stack if URL is already identical
-    if (window.location.search !== (params.toString() ? "?" + params.toString() : "")) {
-      window.history.pushState(null, "", newRelativePathQuery);
+
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, "", targetPath);
     }
   }, [viewingDevDashboard, currentSong, showDiagnostic]);
 
-  // 2. Startup Restoration & Popstate (Browser Back/Forward Buttons) sync
+  // 2. Restore state from URL on mount + handle browser back/forward
   useEffect(() => {
     const handleNavigationRestore = () => {
-      const params = new URLSearchParams(window.location.search);
-      const view = params.get("view");
-      const songId = params.get("song");
-      const calibrate = params.get("calibrate") === "true";
+      const pathname = window.location.pathname;
 
-      if (view === "dashboard") {
+      // /dashboard
+      if (pathname === "/dashboard") {
         setViewingDevDashboard(true);
         setCurrentSong(null);
         setShowDiagnostic(false);
-      } else if (songId) {
+        return;
+      }
+
+      // /song/:youtubeId  or  /song/:youtubeId/calibrate
+      const songMatch = pathname.match(/^\/song\/([^/]+)(\/calibrate)?$/);
+      if (songMatch) {
+        const songId = songMatch[1];
+        const calibrate = Boolean(songMatch[2]);
         setViewingDevDashboard(false);
-        
-        // Asynchronously load the song metadata from the catalog and select it
+
         if (!currentSong || currentSong.youtubeId !== songId) {
           fetch("songs/catalog.json")
             .then(res => res.json())
@@ -290,25 +283,27 @@ export default function App() {
               const matched = catalog.find(s => s.youtubeId === songId);
               if (matched) {
                 handleSelectSong(matched);
-                if (calibrate) {
-                  setShowDiagnostic(true);
-                }
+                if (calibrate) setShowDiagnostic(true);
+              } else {
+                // Song not found — fall back to root
+                window.history.replaceState(null, "", "/");
+                setCurrentSong(null);
               }
             })
-            .catch(err => console.error("[Navigation] Popstate catalog restore failed:", err));
+            .catch(err => console.error("[Navigation] Catalog restore failed:", err));
         } else {
           setShowDiagnostic(calibrate);
         }
-      } else {
-        setViewingDevDashboard(false);
-        setCurrentSong(null);
-        setShowDiagnostic(false);
+        return;
       }
+
+      // / or anything else → catalog
+      setViewingDevDashboard(false);
+      setCurrentSong(null);
+      setShowDiagnostic(false);
     };
 
-    // Run once on mount to handle initial URL restoration
     handleNavigationRestore();
-
     window.addEventListener("popstate", handleNavigationRestore);
     return () => window.removeEventListener("popstate", handleNavigationRestore);
   }, [currentSong]);
