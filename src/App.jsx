@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useSyncEngine } from "./hooks/useSyncEngine";
 import { ArrowLeft } from "lucide-react";
 import { isDevMode } from "./config/env";
@@ -9,10 +9,17 @@ import ControlBar from "./components/ControlBar";
 import AudioShield from "./components/AudioShield";
 import Visualizer from "./components/Visualizer";
 import GameCanvas from "./components/GameCanvas";
-import DevCalibrator from "./components/DevCalibrator";
 import RoadmapScrubber from "./components/RoadmapScrubber";
 import CalibrationTapDeck from "./components/CalibrationTapDeck";
 import DevCalibrationPanel from "./components/DevCalibrationPanel";
+
+const DevCalibrator = lazy(() => {
+  if (isDevMode) {
+    return import("./components/DevCalibrator");
+  } else {
+    return Promise.resolve({ default: () => null });
+  }
+});
 
 // ==========================================================================
 // Piecewise-Linear Warping Helper Algorithms
@@ -1416,31 +1423,38 @@ export default function App() {
             </div>
 
             {/* Right Column: Secure DevCalibrator */}
-            <DevCalibrator
-              songData={songData}
-              originalSongData={originalSongData}
-              calibratedSongData={calibratedSongData}
-              setCalibratedSongData={setCalibratedSongData}
-              setSongData={setSongData}
-              setOriginalSongData={setOriginalSongData}
-              breaks={breaks}
-              setBreaks={setBreaks}
-              currentTime={currentTime}
-              videoDuration={videoDuration}
-              player={player}
-              throttledSeek={throttledSeek}
-              userDelaySetting={userDelaySetting}
-              setUserDelaySetting={setUserDelaySetting}
-              onBackToCatalog={() => {
-                setShowDiagnostic(false);
-                setRawTaps([]);
-                setAnchors([]);
-                setCalibrationStats(null);
-                setEstimatedDelay(null);
-                showToast("🔒 Dev Panel Locked!");
-              }}
-              showToast={showToast}
-            />
+            <Suspense fallback={
+              <div className="glass-panel loading-container" style={{ minHeight: "300px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div className="loading-spinner"></div>
+                <div style={{ fontWeight: 600, color: "#a78bfa" }}>Loading Calibration Workbench...</div>
+              </div>
+            }>
+              <DevCalibrator
+                songData={songData}
+                originalSongData={originalSongData}
+                calibratedSongData={calibratedSongData}
+                setCalibratedSongData={setCalibratedSongData}
+                setSongData={setSongData}
+                setOriginalSongData={setOriginalSongData}
+                breaks={breaks}
+                setBreaks={setBreaks}
+                currentTime={currentTime}
+                videoDuration={videoDuration}
+                player={player}
+                throttledSeek={throttledSeek}
+                userDelaySetting={userDelaySetting}
+                setUserDelaySetting={setUserDelaySetting}
+                onBackToCatalog={() => {
+                  setShowDiagnostic(false);
+                  setRawTaps([]);
+                  setAnchors([]);
+                  setCalibrationStats(null);
+                  setEstimatedDelay(null);
+                  showToast("🔒 Dev Panel Locked!");
+                }}
+                showToast={showToast}
+              />
+            </Suspense>
           </>
         ) : (
           <div className="left-workspace-column">
