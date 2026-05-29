@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Play, Pause, RotateCcw, Save, Trash, Plus, Lock, Unlock, Zap, RefreshCw, VolumeX } from "lucide-react";
-import { Beat, Section, BeatmapSchema } from "../types/beatmap";
+import { ArrowLeft, Play, Pause, RotateCcw, Save, Trash, Plus, Lock, Unlock, Zap, RefreshCw, VolumeX, ShieldAlert, Sparkles, Check } from "lucide-react";
+import { AgnosticSong, Section as AgnosticSection, BeatCountType, CalibratedBeatmap } from "../types/schemas";
 
 interface DevCalibratorProps {
-  songData: BeatmapSchema;
-  originalSongData: BeatmapSchema;
-  calibratedSongData: BeatmapSchema | null;
-  setCalibratedSongData: (data: BeatmapSchema) => void;
-  setSongData: (data: BeatmapSchema) => void;
-  setOriginalSongData: (data: BeatmapSchema) => void;
+  songData: any; // AgnosticSong typecast
+  originalSongData: any;
+  calibratedSongData: any;
+  setCalibratedSongData: (data: any) => void;
+  setSongData: (data: any) => void;
+  setOriginalSongData: (data: any) => void;
   breaks: any[];
   setBreaks: (breaks: any[]) => void;
   currentTime: number;
@@ -24,17 +24,13 @@ interface DevCalibratorProps {
 interface EditorSection {
   id: string;
   name: string;
+  emoji: string;
   startTimestamp: number;
   endTimestamp: number;
-  focus: string;
-  emoji: string;
-}
-
-interface SectionCalibrationStats {
-  totalTaps: number;
-  matchedTaps: number;
-  outliersCount: number;
-  medianDiffMs: number;
+  focusInstrument: string;
+  beatCountType: BeatCountType;
+  displayCounts: boolean;
+  localOffsetMs: number;
 }
 
 export default function DevCalibrator({
@@ -55,40 +51,300 @@ export default function DevCalibrator({
   onBackToCatalog,
   showToast
 }: DevCalibratorProps) {
-  // Sync the local editor sections list with the song data sections
+  const agnosticSong = (calibratedSongData || songData) as AgnosticSong;
+  const youtubeId = agnosticSong?.youtubeId || "unknown";
+
   const [editorSections, setEditorSections] = useState<EditorSection[]>([]);
   const [focusedSectionId, setFocusedSectionId] = useState<string | null>(null);
   
-  // Section-specific tap recording buffer
-  const [sectionTaps, setSectionTaps] = useState<Record<string, number[]>>({});
+  // Continuous Tapping Log
+  const [globalTapLog, setGlobalTapLog] = useState<number[]>(agnosticSong?.globalTapLog || []);
   
-  // Localized section calibration stats
-  const [localStats, setLocalStats] = useState<Record<string, SectionCalibrationStats>>({});
+  // Recovery states
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [pendingRecoveryDraft, setPendingRecoveryDraft] = useState<any>(null);
 
   // Visual animation trigger for tap button
   const [tapFlash, setTapFlash] = useState(false);
 
-  // Load and format sections on mount / song change
+  // Debounced API autosave timer
+  const lastSavedJsonRef = useRef<string>("");
+
+  // Load and format sections on mount / song change & check for crash recovery
   useEffect(() => {
-    if (songData) {
-      const sorted = [...(songData.sections || [])].sort((a, b) => a.startTimestamp - b.startTimestamp);
-      const formatted = sorted.map((sec, idx) => {
+    if (agnosticSong) {
+      // 1. Setup sections
+      const sections = agnosticSong.calibratedBeatmap?.sections || agnosticSong.rawAnalysis?.rawBeats ? [
+        {
+          id: "sec-default",
+          name: "Full Song Grid",
+          emoji: "🪘",
+          startTimestamp: 0,
+          endTimestamp: videoDuration,
+          focusInstrument: "conga",
+          beatCountType: "salsa-8" as BeatCountType,
+          displayCounts: true,
+          localOffsetMs: 0
+        }
+      ] : [];
+
+      const activeSections = agnosticSong.calibratedBeatmap?.sections || [];
+      const sorted = [...activeSections].sort((a, b) => a.startTimestamp - b.startTimestamp);
+      
+      const formatted: EditorSection[] = sorted.map((sec, idx) => {
         const start = sec.startTimestamp;
         const end = (idx < sorted.length - 1) ? sorted[idx + 1].startTimestamp : videoDuration;
         return {
-          id: `sec-${idx}-${sec.name}`,
+          id: sec.id || `sec-${idx}-${sec.name}`,
           name: sec.name,
+          emoji: sec.emoji || "🎵",
           startTimestamp: start,
           endTimestamp: end,
-          focus: sec.focus || "",
-          emoji: sec.emoji || "🎵"
+          focusInstrument: sec.focusInstrument || "",
+          beatCountType: sec.beatCountType || "salsa-8",
+          displayCounts: sec.displayCounts !== false,
+          localOffsetMs: sec.localOffsetMs || 0
         };
       });
-      setEditorSections(formatted);
-    }
-  }, [songData, videoDuration]);
 
-  // Keep focus within bounds and manage auto-seek when focusing
+      setEditorSections(formatted.length > 0 ? formatted : sections as EditorSection[]);
+      setGlobalTapLog(agnosticSong.globalTapLog || []);
+
+      // 2. Check for crash recovery
+      const localDraft = localStorage.getItem(`armada_draft_${youtubeId}`);
+      if (localDraft) {
+        try {
+          const parsed = JSON.parse(localDraft);
+          const lastSavedAt = new Date(parsed.lastSavedAt || 0).getTime();
+          const serverProcessedAt = new Date(agnosticSong.rawAnalysis?.processedAt || 0).getTime();
+          
+          if (lastSavedAt > serverProcessedAt) {
+            setPendingRecoveryDraft(parsed);
+            setShowRecoveryModal(true);
+          }
+        } catch (e) {
+          console.warn("Parsing draft recovery failed:", e);
+        }
+      }
+    }
+  }, [songData, videoDuration, youtubeId]);
+
+  // Apply visual grid shifts on section offsets & global taps dynamically
+  const applyVisualGridShifts = (sectionsList: EditorSection[], tapLog: number[]) => {
+    const baseSong = originalSongData || songData;
+    if (!baseSong) return;
+
+    // Start with original beats
+    let processedBeats = JSON.parse(JSON.stringify(baseSong.beats || []));
+
+    // Apply global phase shift if a tap exists
+    if (tapLog.length > 0) {
+      const delay = userDelaySetting / 1000;
+      const firstTap = tapLog[0] - delay;
+      const originalBeat1s = processedBeats.filter((b: any) => b.beat === 1);
+      
+      if (originalBeat1s.length > 0) {
+        let bestBeat1 = originalBeat1s[0];
+        let minDiff = Infinity;
+        for (const b1 of originalBeat1s) {
+          const diff = Math.abs(firstTap - b1.timestamp);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestBeat1 = b1;
+          }
+        }
+        const shift = firstTap - bestBeat1.timestamp;
+        processedBeats = processedBeats.map((b: any) => ({
+          ...b,
+          timestamp: parseFloat(Math.max(0, b.timestamp + shift).toFixed(3))
+        }));
+      }
+    }
+
+    // Apply local section offsets
+    processedBeats = processedBeats.map((b: any) => {
+      // Find matching section boundary
+      const sec = sectionsList.find(s => b.timestamp >= s.startTimestamp && b.timestamp <= s.endTimestamp);
+      if (sec && sec.localOffsetMs) {
+        const offsetSec = sec.localOffsetMs / 1000;
+        return {
+          ...b,
+          timestamp: parseFloat(Math.max(sec.startTimestamp, Math.min(sec.endTimestamp, b.timestamp + offsetSec)).toFixed(3))
+        };
+      }
+      return b;
+    }).sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+    // Apply piecewise count-modulo re-indexing per section configuration
+    processedBeats = processedBeats.map((b: any, idx: number) => {
+      const sec = sectionsList.find(s => b.timestamp >= s.startTimestamp && b.timestamp <= s.endTimestamp);
+      if (sec) {
+        const beatStyle = sec.beatCountType;
+        if (beatStyle === "bachata-4") {
+          return { ...b, beat: ((idx % 4) + 1) };
+        } else if (beatStyle === "swing-6") {
+          return { ...b, beat: ((idx % 6) + 1) };
+        } else if (beatStyle === "waltz-3") {
+          return { ...b, beat: ((idx % 3) + 1) };
+        } else if (beatStyle === "none") {
+          return { ...b, beat: 0 };
+        }
+      }
+      // default salsa-8
+      return { ...b, beat: ((idx % 8) + 1) };
+    });
+
+    const updated = {
+      ...(calibratedSongData || songData),
+      beats: processedBeats,
+      sections: sectionsList.map(s => ({
+        id: s.id,
+        name: s.name,
+        emoji: s.emoji,
+        startTimestamp: s.startTimestamp,
+        endTimestamp: s.endTimestamp,
+        focusInstrument: s.focusInstrument,
+        beatCountType: s.beatCountType,
+        displayCounts: s.displayCounts,
+        localOffsetMs: s.localOffsetMs
+      })),
+      // Flat compatibility properties:
+      metadata: {
+        ...(calibratedSongData || songData).metadata,
+        bpm: (calibratedSongData || songData).metadata?.bpm || 120
+      }
+    };
+
+    setCalibratedSongData(updated);
+  };
+
+  // Sync section properties to memory
+  const syncSections = (updatedList: EditorSection[]) => {
+    setEditorSections(updatedList);
+    applyVisualGridShifts(updatedList, globalTapLog);
+  };
+
+  // Autolog to LocalStorage + Debounced Server sync every 5 seconds
+  useEffect(() => {
+    if (!agnosticSong) return;
+
+    const draft = {
+      lastSavedAt: new Date().toISOString(),
+      globalTapLogDraft: globalTapLog,
+      sectionsDraft: editorSections.map(s => ({
+        id: s.id,
+        name: s.name,
+        emoji: s.emoji,
+        startTimestamp: s.startTimestamp,
+        endTimestamp: s.endTimestamp,
+        focusInstrument: s.focusInstrument,
+        beatCountType: s.beatCountType,
+        displayCounts: s.displayCounts,
+        localOffsetMs: s.localOffsetMs
+      })),
+      reactionDelayMsDraft: userDelaySetting
+    };
+
+    const draftStr = JSON.stringify(draft);
+    if (draftStr === lastSavedJsonRef.current) return;
+    lastSavedJsonRef.current = draftStr;
+
+    // 1. LocalStorage autosave
+    localStorage.setItem(`armada_draft_${youtubeId}`, draftStr);
+
+    // 2. Debounced API save-draft sync
+    const handler = setTimeout(() => {
+      fetch("/api/save-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ youtubeId, draft })
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            console.log("[Developer API] Draft autosaved successfully on local server.");
+          }
+        })
+        .catch(err => {
+          console.warn("[Developer API] Draft autosave to server failed:", err);
+        });
+    }, 5000);
+
+    return () => clearTimeout(handler);
+  }, [editorSections, globalTapLog, userDelaySetting, youtubeId]);
+
+  // Handle crash recovery option
+  const handleRecoverDraft = () => {
+    if (pendingRecoveryDraft) {
+      const recoveredSections = (pendingRecoveryDraft.sectionsDraft || []).map((s: any, idx: number) => ({
+        id: s.id || `sec-${idx}`,
+        name: s.name,
+        emoji: s.emoji || "🎵",
+        startTimestamp: s.startTimestamp,
+        endTimestamp: s.endTimestamp,
+        focusInstrument: s.focusInstrument || "",
+        beatCountType: s.beatCountType || "salsa-8",
+        displayCounts: s.displayCounts !== false,
+        localOffsetMs: s.localOffsetMs || 0
+      }));
+      
+      const recoveredTaps = pendingRecoveryDraft.globalTapLogDraft || [];
+      const recoveredDelay = pendingRecoveryDraft.reactionDelayMsDraft || 220;
+
+      setEditorSections(recoveredSections);
+      setGlobalTapLog(recoveredTaps);
+      setUserDelaySetting(recoveredDelay);
+      
+      applyVisualGridShifts(recoveredSections, recoveredTaps);
+      
+      showToast("✨ Calibration draft successfully recovered!");
+    }
+    setShowRecoveryModal(false);
+    setPendingRecoveryDraft(null);
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(`armada_draft_${youtubeId}`);
+    setShowRecoveryModal(false);
+    setPendingRecoveryDraft(null);
+    showToast("🗑️ Unsaved draft discarded.");
+  };
+
+  // TAP ON 1 Action Logger
+  const handleTap = () => {
+    if (!player) return;
+    
+    setTapFlash(true);
+    setTimeout(() => setTapFlash(false), 80);
+
+    // If a section is focused, check bounds
+    if (focusedSectionId) {
+      const activeSec = editorSections.find(s => s.id === focusedSectionId);
+      if (activeSec) {
+        if (currentTime < activeSec.startTimestamp || currentTime > activeSec.endTimestamp) {
+          showToast("⚠️ Tap ignored: playback is outside section boundaries!");
+          return;
+        }
+      }
+    }
+
+    const updatedTaps = [...globalTapLog, currentTime].sort((a, b) => a - b);
+    setGlobalTapLog(updatedTaps);
+    applyVisualGridShifts(editorSections, updatedTaps);
+  };
+
+  // Global spacebar event handler for tapping
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        handleTap();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedSectionId, currentTime, globalTapLog, editorSections]);
+
   const handleFocusSection = (secId: string) => {
     if (focusedSectionId === secId) {
       setFocusedSectionId(null);
@@ -97,54 +353,46 @@ export default function DevCalibrator({
       const sec = editorSections.find(s => s.id === secId);
       if (sec) {
         throttledSeek(sec.startTimestamp, true);
-        showToast(`🔍 Focused on ${sec.name}. Metronomes muted. Deck is listening.`);
+        showToast(`🔍 Focused on ${sec.name}. metronome display: ${sec.displayCounts ? 'ON' : 'OFF'}`);
       }
     }
   };
 
-  // Timeline Contiguous boundary adjustments
+  // Draggable timeline boundary adjustment
   const handleUpdateSectionTimes = (id: string, field: "startTimestamp" | "endTimestamp", value: number) => {
     const numericVal = parseFloat(value.toFixed(2));
     
-    setEditorSections(prev => {
-      const list = prev.map(sec => ({ ...sec }));
-      const idx = list.findIndex(sec => sec.id === id);
-      if (idx === -1) return prev;
-      
-      if (field === "startTimestamp") {
-        list[idx].startTimestamp = numericVal;
-        if (idx > 0) {
-          list[idx - 1].endTimestamp = numericVal;
-        }
-      } else if (field === "endTimestamp") {
-        list[idx].endTimestamp = numericVal;
-        if (idx < list.length - 1) {
-          list[idx + 1].startTimestamp = numericVal;
-        }
+    const updated = editorSections.map(sec => {
+      if (sec.id === id) {
+        return { ...sec, [field]: numericVal };
       }
-      
-      // Update the active songData in memory
-      syncSectionsToMemory(list);
-      return list;
+      return sec;
     });
 
+    // Make contiguous
+    const sorted = [...updated].sort((a, b) => a.startTimestamp - b.startTimestamp);
+    const contiguous = sorted.map((sec, idx) => {
+      const start = sec.startTimestamp;
+      const end = (idx < sorted.length - 1) ? sorted[idx + 1].startTimestamp : videoDuration;
+      return {
+        ...sec,
+        startTimestamp: start,
+        endTimestamp: end
+      };
+    });
+
+    syncSections(contiguous);
     throttledSeek(numericVal, false);
   };
 
-  const handleUpdateSectionName = (id: string, name: string) => {
-    setEditorSections(prev => {
-      const updated = prev.map(sec => sec.id === id ? { ...sec, name } : sec);
-      syncSectionsToMemory(updated);
-      return updated;
+  const handleUpdateSectionField = (id: string, field: keyof EditorSection, value: any) => {
+    const updated = editorSections.map(sec => {
+      if (sec.id === id) {
+        return { ...sec, [field]: value };
+      }
+      return sec;
     });
-  };
-
-  const handleUpdateSectionMetadata = (id: string, field: "focus" | "emoji", value: string) => {
-    setEditorSections(prev => {
-      const updated = prev.map(sec => sec.id === id ? { ...sec, [field]: value } : sec);
-      syncSectionsToMemory(updated);
-      return updated;
-    });
+    syncSections(updated);
   };
 
   const handleAddNewSection = () => {
@@ -154,10 +402,13 @@ export default function DevCalibrator({
     const newSec: EditorSection = {
       id: `sec-new-${Date.now()}`,
       name: "New Section",
+      emoji: "🎵",
       startTimestamp: currentPlayhead,
       endTimestamp: parseFloat((currentPlayhead + 10).toFixed(2)),
-      focus: "",
-      emoji: "🎵"
+      focusInstrument: "",
+      beatCountType: "salsa-8",
+      displayCounts: true,
+      localOffsetMs: 0
     };
     
     const updated = [...editorSections, newSec].sort((a, b) => a.startTimestamp - b.startTimestamp);
@@ -171,15 +422,13 @@ export default function DevCalibrator({
       };
     });
     
-    setEditorSections(contiguous);
+    syncSections(contiguous);
     setFocusedSectionId(newSec.id);
-    syncSectionsToMemory(contiguous);
-    showToast("➕ Added new section! Focus active.");
+    showToast("➕ Added new section!");
   };
 
   const handleDeleteSection = (id: string) => {
     const updated = editorSections.filter(sec => sec.id !== id);
-    // Force contiguous boundary merge
     const contiguous = updated.map((sec, idx) => {
       const start = sec.startTimestamp;
       const end = (idx < updated.length - 1) ? updated[idx + 1].startTimestamp : videoDuration;
@@ -189,321 +438,61 @@ export default function DevCalibrator({
         endTimestamp: end
       };
     });
-    setEditorSections(contiguous);
+    syncSections(contiguous);
     if (focusedSectionId === id) setFocusedSectionId(null);
-    syncSectionsToMemory(contiguous);
     showToast("🗑️ Section removed.");
   };
 
-  const syncSectionsToMemory = (secsList: EditorSection[]) => {
-    const dbSections = secsList.map(sec => ({
-      name: sec.name,
-      startTimestamp: parseFloat(sec.startTimestamp.toFixed(3)),
-      focus: sec.focus,
-      emoji: sec.emoji
-    })).sort((a, b) => a.startTimestamp - b.startTimestamp);
-
-    const activeMap = calibratedSongData || songData;
-    if (activeMap) {
-      const updated = {
-        ...activeMap,
-        sections: dbSections
-      };
-      setSongData(updated);
-      setCalibratedSongData(updated);
-    }
+  const handleClearTaps = () => {
+    setGlobalTapLog([]);
+    applyVisualGridShifts(editorSections, []);
+    showToast("🔄 Continuous taps cleared.");
   };
 
-  // TAP ON 1 Action Logger
-  const handleTap = () => {
-    if (!focusedSectionId) {
-      showToast("⚠️ Please select and Focus a section before tapping to calibrate!");
-      return;
-    }
-
-    setTapFlash(true);
-    setTimeout(() => setTapFlash(false), 80);
-
-    const activeSec = editorSections.find(s => s.id === focusedSectionId);
-    if (!activeSec) return;
-
-    // Check if tap falls within active section bounds to prevent contamination
-    if (currentTime < activeSec.startTimestamp || currentTime > activeSec.endTimestamp) {
-      showToast("⚠️ Tap ignored: playback is outside the focused section boundaries!");
-      return;
-    }
-
-    setSectionTaps(prev => {
-      const currentList = prev[focusedSectionId] || [];
-      const updatedList = [...currentList, currentTime].sort((a, b) => a - b);
-      return {
-        ...prev,
-        [focusedSectionId]: updatedList
-      };
-    });
-  };
-
-  // Global spacebar event handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && focusedSectionId) {
-        e.preventDefault();
-        handleTap();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedSectionId, currentTime]);
-
-  const handleClearTaps = (secId: string) => {
-    setSectionTaps(prev => {
-      const copy = { ...prev };
-      delete copy[secId];
-      return copy;
-    });
-    setLocalStats(prev => {
-      const copy = { ...prev };
-      delete copy[secId];
-      return copy;
-    });
-    showToast("🔄 Taps cleared for this section.");
-  };
-
-  // Isolated Grid Shift Normalization
-  const handleNormalizeSection = (secId: string) => {
-    const sec = editorSections.find(s => s.id === secId);
-    const taps = sectionTaps[secId];
-    if (!sec || !taps || taps.length === 0) {
-      showToast("⚠️ Record at least 1 tap inside the section to normalize!");
-      return;
-    }
-
-    const baseSong = originalSongData || songData;
-    if (!baseSong) return;
-
-    const delay = userDelaySetting / 1000;
-    const correctedTaps = taps.map(t => t - delay);
-
-    // Filter beats of baseline that reside inside section boundaries
-    const sectionBeats = baseSong.beats.filter(
-      b => b.timestamp >= sec.startTimestamp && b.timestamp <= sec.endTimestamp
-    );
-
-    if (sectionBeats.length === 0) {
-      showToast("⚠️ No beats found within section boundaries in the baseline beatmap!");
-      return;
-    }
-
-    const sectionBeat1s = sectionBeats.filter(b => b.beat === 1);
-    if (sectionBeat1s.length === 0) {
-      showToast("⚠️ No downbeats (count 1) found in this section to align!");
-      return;
-    }
-
-    // 1. Calculate local phase shift based on first tap
-    const firstTap = correctedTaps[0];
-    let bestBeat1 = sectionBeat1s[0];
-    let minDiff = Infinity;
-    for (const b1 of sectionBeat1s) {
-      const diff = Math.abs(firstTap - b1.timestamp);
-      if (diff < minDiff) {
-        minDiff = diff;
-        bestBeat1 = b1;
-      }
-    }
-    const localShift = firstTap - bestBeat1.timestamp;
-
-    // Shift section beats temporarily as baseline
-    const shiftedSectionBeats = sectionBeats.map(b => ({
-      ...b,
-      timestamp: parseFloat(Math.max(sec.startTimestamp, Math.min(sec.endTimestamp, b.timestamp + localShift)).toFixed(3))
-    }));
-
-    let finalSectionBeats = shiftedSectionBeats;
-    let matchedCount = 1;
-    let outlierCount = 0;
-    let medianDiff = localShift;
-
-    // 2. Local piecewise-linear warping if multiple taps are registered
-    if (correctedTaps.length > 1) {
-      const alignedBeat1Times = shiftedSectionBeats
-        .map((b, idx) => ({ ...b, sectionIndex: idx }))
-        .filter(b => b.beat === 1);
-
-      const matchedPairs: any[] = [];
-      correctedTaps.forEach(ct => {
-        let bestB1 = null;
-        let minD = Infinity;
-        for (const b1 of alignedBeat1Times) {
-          const d = Math.abs(ct - b1.timestamp);
-          if (d < minD) {
-            minD = d;
-            bestB1 = b1;
-          }
-        }
-        if (bestB1 && minD < 0.400) {
-          matchedPairs.push({
-            correctedTime: ct,
-            originalTime: bestB1.timestamp,
-            sectionIndex: bestB1.sectionIndex,
-            diff: ct - bestB1.timestamp
-          });
-        }
-      });
-
-      if (matchedPairs.length > 0) {
-        const diffs = matchedPairs.map(p => p.diff);
-        const sortedDiffs = [...diffs].sort((a, b) => a - b);
-        medianDiff = sortedDiffs[Math.floor(sortedDiffs.length / 2)];
-        
-        // Filter outliers deviating by > 150ms from local median
-        const cleanPairs = matchedPairs.filter(p => Math.abs(p.diff - medianDiff) <= 0.150);
-        outlierCount = matchedPairs.length - cleanPairs.length;
-        matchedCount = cleanPairs.length;
-
-        if (cleanPairs.length > 0) {
-          const anchorsMap: Record<number, any> = {};
-          cleanPairs.forEach(p => {
-            if (!anchorsMap[p.sectionIndex]) {
-              anchorsMap[p.sectionIndex] = {
-                sectionIndex: p.sectionIndex,
-                originalTime: p.originalTime,
-                tappedTimesList: []
-              };
-            }
-            anchorsMap[p.sectionIndex].tappedTimesList.push(p.correctedTime);
-          });
-
-          const cleanAnchors = Object.values(anchorsMap).map((a: any) => {
-            const avgTappedTime = a.tappedTimesList.reduce((sum: number, val: number) => sum + val, 0) / a.tappedTimesList.length;
-            return {
-              sectionIndex: a.sectionIndex,
-              originalTime: a.originalTime,
-              tappedTime: avgTappedTime
-            };
-          }).sort((a, b) => a.sectionIndex - b.sectionIndex);
-
-          // Piecewise-linear warping calculations exclusively for this section
-          finalSectionBeats = shiftedSectionBeats.map((b, idx) => {
-            let warpedTime = b.timestamp;
-            let leftAnchor = null;
-            let rightAnchor = null;
-
-            for (const a of cleanAnchors) {
-              if (a.sectionIndex <= idx) {
-                leftAnchor = a;
-              } else if (a.sectionIndex > idx && !rightAnchor) {
-                rightAnchor = a;
-              }
-            }
-
-            if (leftAnchor && rightAnchor) {
-              const oLeft = leftAnchor.originalTime;
-              const oRight = rightAnchor.originalTime;
-              const tLeft = leftAnchor.tappedTime;
-              const tRight = rightAnchor.tappedTime;
-              const dO = oRight - oLeft;
-              const dT = tRight - tLeft;
-              if (dO > 0) {
-                warpedTime = tLeft + ((b.timestamp - oLeft) / dO) * dT;
-              } else {
-                warpedTime = tLeft;
-              }
-            } else if (leftAnchor) {
-              const offset = leftAnchor.tappedTime - leftAnchor.originalTime;
-              warpedTime = b.timestamp + offset;
-            } else if (rightAnchor) {
-              const offset = rightAnchor.tappedTime - rightAnchor.originalTime;
-              warpedTime = b.timestamp + offset;
-            }
-
-            // Piecewise modular re-indexing inside the active section
-            let newBeatNum = b.beat;
-            if (leftAnchor) {
-              newBeatNum = (((idx - leftAnchor.sectionIndex) % 8 + 8) % 8 + 1) as any;
-            } else if (rightAnchor) {
-              newBeatNum = (((idx - rightAnchor.sectionIndex) % 8 + 8) % 8 + 1) as any;
-            }
-
-            return {
-              timestamp: parseFloat(Math.max(sec.startTimestamp, Math.min(sec.endTimestamp, warpedTime)).toFixed(3)),
-              beat: newBeatNum
-            };
-          });
-        }
-      }
-    }
-
-    // Merge warped section beats back into main beat list (beats outside the section are untouched!)
-    const activeBeats = calibratedSongData?.beats || songData.beats || [];
-    const mergedBeats = activeBeats.map(b => {
-      if (b.timestamp >= sec.startTimestamp && b.timestamp <= sec.endTimestamp) {
-        // Find matching original beat index in sectionBeats
-        const idx = sectionBeats.findIndex(sb => sb.timestamp === b.timestamp);
-        if (idx !== -1) return finalSectionBeats[idx];
-      }
-      return b;
-    }).sort((a, b) => a.timestamp - b.timestamp);
-
-    const updatedBeatmap = {
-      ...(calibratedSongData || songData),
-      beats: mergedBeats
-    };
-
-    setCalibratedSongData(updatedBeatmap);
-    
-    // Save section calibration stats
-    setLocalStats(prev => ({
-      ...prev,
-      [secId]: {
-        totalTaps: taps.length,
-        matchedTaps: matchedCount,
-        outliersCount: outlierCount,
-        medianDiffMs: Math.round((medianDiff + localShift) * 1000)
-      }
-    }));
-
-    showToast(`✅ Normalized ${sec.name}! Isolated shift applied to ${sectionBeats.length} beats.`);
-  };
-
-  // Work-Saving Persistence
-  const handleSaveSectionToDisk = (secId: string) => {
-    const sec = editorSections.find(s => s.id === secId);
-    if (!sec) return;
-
+  // Full manual beatmap commit back to disk
+  const handleFinalSaveToDisk = () => {
     const activeBeatmap = calibratedSongData || songData;
     const baseSong = originalSongData || songData;
     if (!activeBeatmap || !baseSong) return;
 
-    // Local section calibration metadata logs
-    const stats = localStats[secId];
-    const rawSectionTaps = sectionTaps[secId] || [];
-
-    const calibration = {
-      recordedAt: new Date().toISOString(),
-      sectionName: sec.name,
-      sectionBounds: { start: sec.startTimestamp, end: sec.endTimestamp },
-      tapCount: rawSectionTaps.length,
-      rawTaps: rawSectionTaps.map(t => parseFloat(t.toFixed(3))),
-      reactionDelayMs: userDelaySetting,
-      stats: stats || null
-    };
-
     const payload = {
-      youtubeId: baseSong.metadata?.youtubeId || 'calibrated_song',
+      youtubeId: youtubeId,
       activeBeatmap: {
         ...activeBeatmap,
-        tapCalibration: calibration,
+        isCalibrated: true,
+        globalTapLog: globalTapLog,
+        globalReactionDelayMs: userDelaySetting,
+        calibratedBeatmap: {
+          bpm: activeBeatmap.calibratedBeatmap?.bpm || activeBeatmap.metadata?.bpm || 120,
+          beats: activeBeatmap.beats,
+          sections: editorSections.map(s => ({
+            id: s.id,
+            name: s.name,
+            emoji: s.emoji,
+            startTimestamp: s.startTimestamp,
+            endTimestamp: s.endTimestamp,
+            focusInstrument: s.focusInstrument,
+            beatCountType: s.beatCountType,
+            displayCounts: s.displayCounts,
+            localOffsetMs: s.localOffsetMs
+          }))
+        },
         breaks: breaks
       },
       originalBeatmap: {
         ...baseSong,
         breaks: breaks
       },
-      calibration: calibration
+      calibration: {
+        recordedAt: new Date().toISOString(),
+        youtubeId: youtubeId,
+        globalTapLog: globalTapLog,
+        reactionDelayMs: userDelaySetting,
+        sections: editorSections
+      }
     };
 
-    showToast(`💾 Saving calibrated section ${sec.name} permanently...`);
+    showToast("💾 Saving calibrated song permanently to disk...");
 
     fetch("/api/save-beatmap", {
       method: "POST",
@@ -516,21 +505,16 @@ export default function DevCalibrator({
       })
       .then(result => {
         if (result.success) {
+          localStorage.removeItem(`armada_draft_${youtubeId}`);
           setOriginalSongData(JSON.parse(JSON.stringify(activeBeatmap)));
           setSongData(JSON.parse(JSON.stringify(activeBeatmap)));
-          // Clear localized active section taps to finalize focus
-          setSectionTaps(prev => {
-            const copy = { ...prev };
-            delete copy[secId];
-            return copy;
-          });
-          showToast(`✅ Saved ${sec.name} & committed baseline files!`);
+          showToast("🎉 Calibrated song successfully saved and catalog updated!");
         } else {
           throw new Error(result.error);
         }
       })
       .catch(err => {
-        console.error("Save section failed:", err);
+        console.error("Final save failed:", err);
         showToast("❌ Save to disk failed. Check console.");
       });
   };
@@ -540,23 +524,72 @@ export default function DevCalibrator({
   return (
     <div className="glass-panel dev-calibrator-workbench" style={{ display: "flex", flexDirection: "column", gap: "20px", padding: "20px", width: "100%", border: "1px solid rgba(139, 92, 246, 0.3)", background: "rgba(10, 5, 20, 0.75)", backdropFilter: "blur(12px)", borderRadius: "20px" }}>
       
+      {/* Recovery Prompt Modal */}
+      {showRecoveryModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "20px" }}>
+          <div className="glass-panel" style={{ maxWidth: "480px", width: "100%", padding: "30px", borderRadius: "20px", border: "2px solid #8b5cf6", background: "rgba(15, 10, 25, 0.95)", textAlign: "center", display: "flex", flexDirection: "column", gap: "20px", boxShadow: "0 0 30px rgba(139, 92, 246, 0.4)" }}>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <ShieldAlert size={48} style={{ color: "#fb923c" }} />
+            </div>
+            <div>
+              <h3 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: "900", color: "#fff" }}>Unsaved Draft Detected</h3>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#9ca3af", lineHeight: "1.4" }}>
+                We found an unsaved calibration draft in your local storage for this song. Would you like to recover it and resume your progress?
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+              <button 
+                onClick={handleRecoverDraft}
+                style={{ flex: 1, padding: "10px 14px", border: "none", borderRadius: "10px", background: "linear-gradient(135deg, #a78bfa, #8b5cf6)", color: "#fff", fontWeight: "bold", fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              >
+                <Sparkles size={14} /> Recover Draft
+              </button>
+              <button 
+                onClick={handleDiscardDraft}
+                style={{ flex: 1, padding: "10px 14px", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: "10px", background: "rgba(239, 68, 68, 0.1)", color: "#f87171", fontWeight: "bold", fontSize: "0.85rem", cursor: "pointer" }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upper control header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "12px" }}>
         <span style={{ fontSize: "1rem", fontWeight: "900", color: "#c084fc", textTransform: "uppercase", letterSpacing: "1px", display: "flex", alignItems: "center", gap: "8px" }}>
-          🛠️ Downbeat Calibration Workbench
+          🛠️ Style-Agnostic Downbeat Workbench
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "0.75rem", color: "#6b7280", background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: "8px", fontWeight: "bold" }}>DEV CONSOLE</span>
+          <button
+            onClick={handleFinalSaveToDisk}
+            style={{
+              background: "linear-gradient(135deg, #34d399, #059669)",
+              border: "none",
+              color: "#fff",
+              padding: "6px 14px",
+              borderRadius: "8px",
+              fontSize: "0.75rem",
+              fontWeight: "900",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 4px 10px rgba(52, 211, 153, 0.2)"
+            }}
+          >
+            <Check size={14} /> Commit Song Calibration
+          </button>
           <button 
             onClick={onBackToCatalog}
             style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#f87171", padding: "4px 12px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "700", cursor: "pointer", transition: "all 0.2s ease" }}
           >
-            Exit Dev Mode
+            Exit Calibrator
           </button>
         </div>
       </div>
 
-      {/* Latency Offset Slider */}
+      {/* Reaction Latency Offset Slider */}
       <div className="dev-panel" style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(255,255,255,0.02)", padding: "14px 18px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: "0.85rem", fontWeight: "800", color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reaction delay compensation</span>
@@ -572,78 +605,80 @@ export default function DevCalibrator({
           style={{ width: "100%", accentColor: "#fb923c" }}
         />
         <span style={{ fontSize: "0.7rem", color: "#6b7280", fontStyle: "italic" }}>
-          Latency delay subtracted from tap events (default 200ms reaction offset).
+          Compensation delay subtracted from tap inputs (default 200ms reaction offset).
         </span>
       </div>
 
-      {/* The Pure Listening Tapping Deck */}
-      {focusedSectionId ? (
-        <div 
-          className={`glass-panel listening-tapping-deck ${tapFlash ? "active-flash" : ""}`}
+      {/* Global / Continuous Listening Deck */}
+      <div 
+        className={`glass-panel listening-tapping-deck ${tapFlash ? "active-flash" : ""}`}
+        style={{
+          padding: "24px",
+          background: "linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.03) 100%)",
+          border: "2px solid rgba(139, 92, 246, 0.4)",
+          borderRadius: "16px",
+          textAlign: "center",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          alignItems: "center",
+          boxShadow: tapFlash ? "0 0 40px rgba(139, 92, 246, 0.3)" : "none",
+          transition: "all 0.1s ease"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(139, 92, 246, 0.15)", padding: "6px 14px", borderRadius: "20px", border: "1px solid rgba(139, 92, 246, 0.3)" }}>
+          <span style={{ fontSize: "1.4rem" }}>{activeFocusedSec ? activeFocusedSec.emoji : "🎧"}</span>
+          <span style={{ fontWeight: "800", color: "#fff", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "0.5px" }}>
+            {activeFocusedSec ? `Focusing: ${activeFocusedSec.name}` : "GLOBAL TAPPING CALIBRATION MODE"}
+          </span>
+          <span style={{ fontSize: "0.75rem", color: "#a78bfa", marginLeft: "6px", background: "rgba(0,0,0,0.3)", padding: "2px 8px", borderRadius: "6px" }}>
+            🎧 metronome displays silent
+          </span>
+        </div>
+
+        {/* TAP ON 1 Button */}
+        <button
+          onClick={handleTap}
           style={{
-            padding: "24px",
-            background: "linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.03) 100%)",
-            border: "2px solid rgba(139, 92, 246, 0.4)",
-            borderRadius: "16px",
-            textAlign: "center",
+            width: "100%",
+            height: "100px",
+            borderRadius: "18px",
+            border: "3px solid #8b5cf6",
+            background: tapFlash ? "linear-gradient(135deg, #a78bfa, #8b5cf6)" : "rgba(139, 92, 246, 0.1)",
+            cursor: "pointer",
             display: "flex",
             flexDirection: "column",
-            gap: "16px",
             alignItems: "center",
-            boxShadow: tapFlash ? "0 0 40px rgba(139, 92, 246, 0.3)" : "none",
-            transition: "all 0.1s ease"
+            justifyContent: "center",
+            gap: "4px",
+            boxShadow: tapFlash ? "0 0 25px rgba(167, 139, 250, 0.4)" : "none",
+            transition: "all 0.08s ease"
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(139, 92, 246, 0.15)", padding: "6px 14px", borderRadius: "20px", border: "1px solid rgba(139, 92, 246, 0.3)" }}>
-            <span style={{ fontSize: "1.4rem" }}>{activeFocusedSec?.emoji}</span>
-            <span style={{ fontWeight: "800", color: "#fff", textTransform: "uppercase", fontSize: "0.85rem", letterSpacing: "0.5px" }}>
-              Focusing: {activeFocusedSec?.name}
-            </span>
-            <span style={{ fontSize: "0.75rem", color: "#a78bfa", marginLeft: "6px", background: "rgba(0,0,0,0.3)", padding: "2px 8px", borderRadius: "6px" }}>
-              🎧 Metronome Muted
-            </span>
-          </div>
+          <span style={{ fontSize: "1.5rem", fontWeight: "900", color: tapFlash ? "#000" : "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>TAP ON "1"</span>
+          <span style={{ fontSize: "0.75rem", color: tapFlash ? "rgba(0,0,0,0.6)" : "#a78bfa" }}>
+            (Or press Spacebar anywhere to log downbeats)
+          </span>
+        </button>
 
-          {/* TAP ON 1 Button */}
-          <button
-            onClick={handleTap}
-            style={{
-              width: "100%",
-              height: "100px",
-              borderRadius: "18px",
-              border: "3px solid #8b5cf6",
-              background: tapFlash ? "linear-gradient(135deg, #a78bfa, #8b5cf6)" : "rgba(139, 92, 246, 0.1)",
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "4px",
-              boxShadow: tapFlash ? "0 0 25px rgba(167, 139, 250, 0.4)" : "none",
-              transition: "all 0.08s ease"
-            }}
-          >
-            <span style={{ fontSize: "1.5rem", fontWeight: "900", color: tapFlash ? "#000" : "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>TAP ON "1"</span>
-            <span style={{ fontSize: "0.75rem", color: tapFlash ? "rgba(0,0,0,0.6)" : "#a78bfa" }}>
-              (Or press Spacebar inside focused browser tab)
-            </span>
-          </button>
-
-          {/* Taps count banner */}
-          <div style={{ fontSize: "0.8rem", color: "#e5e7eb", fontWeight: "600" }}>
-            Taps logged in section: <strong style={{ color: "#34d399", fontSize: "0.95rem" }}>{(sectionTaps[focusedSectionId] || []).length}</strong>
-          </div>
+        {/* Taps count banner */}
+        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "0.8rem", color: "#e5e7eb", fontWeight: "600" }}>
+          <span>Taps logged: <strong style={{ color: "#34d399", fontSize: "0.95rem" }}>{globalTapLog.length}</strong></span>
+          {globalTapLog.length > 0 && (
+            <button 
+              onClick={handleClearTaps}
+              style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "4px" }}
+            >
+              <RotateCcw size={12} /> Clear Taps
+            </button>
+          )}
         </div>
-      ) : (
-        <div style={{ padding: "20px", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: "16px", color: "#6b7280", fontStyle: "italic", fontSize: "0.85rem" }}>
-          💡 Click "Focus Section" on any section below to open the listening tapping deck and calibrate its downbeats securely.
-        </div>
-      )}
+      </div>
 
       {/* Sections Manager Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: "0.9rem", fontWeight: "800", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px" }}>
-          🏷️ Section Timeline Boundaries
+          🏷️ Style-Agnostic Structural Sections
         </span>
         <button 
           onClick={handleAddNewSection} 
@@ -660,9 +695,6 @@ export default function DevCalibrator({
           const isFocused = focusedSectionId === sec.id;
           const isAnyFocused = focusedSectionId !== null;
           const isDimmed = isAnyFocused && !isFocused;
-          
-          const taps = sectionTaps[sec.id] || [];
-          const stats = localStats[sec.id];
 
           return (
             <div 
@@ -670,7 +702,7 @@ export default function DevCalibrator({
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "10px",
+                gap: "12px",
                 padding: "16px",
                 borderRadius: "14px",
                 border: isFocused ? "2px solid #8b5cf6" : "1px solid rgba(255,255,255,0.06)",
@@ -686,7 +718,7 @@ export default function DevCalibrator({
                 <input 
                   type="text" 
                   value={sec.emoji}
-                  onChange={(e) => handleUpdateSectionMetadata(sec.id, "emoji", e.target.value)}
+                  onChange={(e) => handleUpdateSectionField(sec.id, "emoji", e.target.value)}
                   placeholder="Emoji"
                   disabled={isDimmed}
                   style={{ width: "38px", textAlign: "center", padding: "6px", fontSize: "0.9rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
@@ -694,7 +726,7 @@ export default function DevCalibrator({
                 <input 
                   type="text" 
                   value={sec.name} 
-                  onChange={(e) => handleUpdateSectionName(sec.id, e.target.value)}
+                  onChange={(e) => handleUpdateSectionField(sec.id, "name", e.target.value)}
                   placeholder="e.g. Verse, Chorus, Montuno"
                   disabled={isDimmed}
                   style={{ flexGrow: 1, padding: "6px 12px", fontSize: "0.85rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", fontWeight: "bold" }}
@@ -724,7 +756,7 @@ export default function DevCalibrator({
                 </button>
 
                 {/* Delete button */}
-                {!isFocused && !isAnyFocused && (
+                {!isFocused && !isAnyFocused && sec.id !== "sec-default" && (
                   <button 
                     onClick={() => handleDeleteSection(sec.id)}
                     style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "#f87171", padding: "6px", borderRadius: "8px", cursor: "pointer" }}
@@ -735,17 +767,73 @@ export default function DevCalibrator({
                 )}
               </div>
 
+              {/* Agnostic Configuration Block */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "0.7rem", color: "#9ca3af", fontWeight: "bold", textTransform: "uppercase" }}>Beat Count Modulo</label>
+                  <select
+                    value={sec.beatCountType}
+                    onChange={(e) => handleUpdateSectionField(sec.id, "beatCountType", e.target.value)}
+                    disabled={isDimmed}
+                    style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: "0.8rem", outline: "none" }}
+                  >
+                    <option value="salsa-8">Salsa 8-Count (1-8)</option>
+                    <option value="bachata-4">Bachata 4-Count (1-4)</option>
+                    <option value="swing-6">Swing 6-Count (1-6)</option>
+                    <option value="waltz-3">Waltz 3-Count (1-3)</option>
+                    <option value="none">No Metronome / Free Time (none)</option>
+                  </select>
+                </div>
+                
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "16px" }}>
+                  <input
+                    type="checkbox"
+                    id={`display-counts-${sec.id}`}
+                    checked={sec.displayCounts}
+                    onChange={(e) => handleUpdateSectionField(sec.id, "displayCounts", e.target.checked)}
+                    disabled={isDimmed}
+                    style={{ width: "16px", height: "16px", accentColor: "#8b5cf6" }}
+                  />
+                  <label htmlFor={`display-counts-${sec.id}`} style={{ fontSize: "0.8rem", color: "#e5e7eb", cursor: "pointer", fontWeight: "500" }}>
+                    Enable Metronome Display
+                  </label>
+                </div>
+              </div>
+
               {/* Focus Instrument */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                 <span style={{ fontSize: "0.75rem", color: "#9ca3af", width: "110px", flexShrink: 0 }}>Focus Instrument:</span>
                 <input 
                   type="text" 
-                  value={sec.focus} 
-                  onChange={(e) => handleUpdateSectionMetadata(sec.id, "focus", e.target.value)}
+                  value={sec.focusInstrument} 
+                  onChange={(e) => handleUpdateSectionField(sec.id, "focusInstrument", e.target.value)}
                   placeholder="e.g. Cowbell (Campana)"
                   disabled={isDimmed}
                   style={{ flexGrow: 1, padding: "5px 10px", fontSize: "0.75rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)", color: "#e5e7eb" }}
                 />
+              </div>
+
+              {/* Local Section Offset Slider (Microsecond timing shifting island) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", background: "rgba(139, 92, 246, 0.03)", padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(139, 92, 246, 0.1)", marginTop: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#9ca3af" }}>
+                  <span>Section-Specific Offset Shift</span>
+                  <strong style={{ color: sec.localOffsetMs >= 0 ? "#34d399" : "#f87171" }}>
+                    {sec.localOffsetMs >= 0 ? "+" : ""}{sec.localOffsetMs}ms
+                  </strong>
+                </div>
+                <input 
+                  type="range" 
+                  min="-500" 
+                  max="500" 
+                  step="5" 
+                  value={sec.localOffsetMs}
+                  disabled={isDimmed}
+                  onChange={(e) => handleUpdateSectionField(sec.id, "localOffsetMs", parseInt(e.target.value))}
+                  style={{ width: "100%", accentColor: "#8b5cf6" }}
+                />
+                <span style={{ fontSize: "0.65rem", color: "#6b7280", fontStyle: "italic" }}>
+                  Shift the local beat grid for this section only, without affecting other sections.
+                </span>
               </div>
 
               {/* Sliders for boundaries */}
@@ -763,27 +851,19 @@ export default function DevCalibrator({
                       max={videoDuration || 300} 
                       step="0.05" 
                       value={sec.startTimestamp}
-                      disabled={isDimmed}
+                      disabled={isDimmed || sec.id === "sec-default"}
                       onChange={(e) => handleUpdateSectionTimes(sec.id, "startTimestamp", parseFloat(e.target.value))}
                       style={{ flexGrow: 1, accentColor: "#38bdf8" }}
                     />
                     <button 
                       className="btn-dev-sync" 
-                      disabled={isDimmed}
+                      disabled={isDimmed || sec.id === "sec-default"}
                       onClick={() => { if (!player) return; handleUpdateSectionTimes(sec.id, "startTimestamp", player.getCurrentTime()); }}
                       style={{ padding: "4px 8px", fontSize: "0.7rem" }}
                     >
                       Mark
                     </button>
                   </div>
-                  {!isDimmed && (
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp - 0.5)}>-0.5s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp - 0.1)}>-0.1s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp + 0.1)}>+0.1s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "startTimestamp", sec.startTimestamp + 0.5)}>+0.5s</button>
-                    </div>
-                  )}
                 </div>
 
                 {/* End boundary */}
@@ -799,128 +879,21 @@ export default function DevCalibrator({
                       max={videoDuration || 300} 
                       step="0.05" 
                       value={sec.endTimestamp}
-                      disabled={isDimmed}
+                      disabled={isDimmed || sec.id === "sec-default"}
                       onChange={(e) => handleUpdateSectionTimes(sec.id, "endTimestamp", parseFloat(e.target.value))}
                       style={{ flexGrow: 1, accentColor: "#f43f5e" }}
                     />
                     <button 
                       className="btn-dev-sync" 
-                      disabled={isDimmed}
+                      disabled={isDimmed || sec.id === "sec-default"}
                       onClick={() => { if (!player) return; handleUpdateSectionTimes(sec.id, "endTimestamp", player.getCurrentTime()); }}
                       style={{ padding: "4px 8px", fontSize: "0.7rem" }}
                     >
                       Mark
                     </button>
                   </div>
-                  {!isDimmed && (
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp - 0.5)}>-0.5s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp - 0.1)}>-0.1s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp + 0.1)}>+0.1s</button>
-                      <button className="btn-step" onClick={() => handleUpdateSectionTimes(sec.id, "endTimestamp", sec.endTimestamp + 0.5)}>+0.5s</button>
-                    </div>
-                  )}
                 </div>
               </div>
-
-              {/* Local Calibration Status Dashboard (only displayed if focused) */}
-              {isFocused && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "12px", marginTop: "6px" }}>
-                  {stats && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "rgba(52, 211, 153, 0.05)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(52, 211, 153, 0.15)", fontSize: "0.75rem" }}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ color: "#9ca3af", fontSize: "0.65rem" }}>Total Section Taps</span>
-                        <span style={{ fontWeight: "bold", color: "#fff" }}>{stats.totalTaps}</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ color: "#9ca3af", fontSize: "0.65rem" }}>Matched Taps</span>
-                        <span style={{ fontWeight: "bold", color: "#34d399" }}>{stats.matchedTaps}</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ color: "#9ca3af", fontSize: "0.65rem" }}>Outliers Rejected</span>
-                        <span style={{ fontWeight: "bold", color: "#f87171" }}>{stats.outliersCount}</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ color: "#9ca3af", fontSize: "0.65rem" }}>Local Median Offset</span>
-                        <span style={{ fontWeight: "bold", color: "#60a5fa" }}>{stats.medianDiffMs}ms</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Calibration buttons */}
-                  <div style={{ display: "flex", gap: "8px", width: "100%" }}>
-                    <button 
-                      onClick={() => handleNormalizeSection(sec.id)}
-                      disabled={taps.length === 0}
-                      style={{
-                        flexGrow: 2,
-                        padding: "8px 12px",
-                        fontSize: "0.75rem",
-                        fontWeight: "bold",
-                        background: taps.length === 0 ? "rgba(255,255,255,0.02)" : "linear-gradient(135deg, #a78bfa, #8b5cf6)",
-                        color: taps.length === 0 ? "#4b5563" : "#fff",
-                        cursor: taps.length === 0 ? "not-allowed" : "pointer",
-                        border: "none",
-                        borderRadius: "8px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "6px",
-                        boxShadow: taps.length === 0 ? "none" : "0 4px 10px rgba(139, 92, 246, 0.2)",
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      <RefreshCw size={12} className={taps.length > 0 ? "animate-spin-slow" : ""} />
-                      <span>Shift Section Grid</span>
-                    </button>
-
-                    {stats && (
-                      <button
-                        onClick={() => handleSaveSectionToDisk(sec.id)}
-                        style={{
-                          flexGrow: 2,
-                          padding: "8px 12px",
-                          fontSize: "0.75rem",
-                          fontWeight: "bold",
-                          background: "linear-gradient(135deg, #34d399, #059669)",
-                          color: "#fff",
-                          cursor: "pointer",
-                          border: "none",
-                          borderRadius: "8px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          boxShadow: "0 4px 10px rgba(52, 211, 153, 0.2)"
-                        }}
-                      >
-                        <Save size={12} />
-                        <span>Save Section</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleClearTaps(sec.id)}
-                      disabled={taps.length === 0}
-                      style={{
-                        width: "36px",
-                        height: "32px",
-                        background: "rgba(239, 68, 68, 0.1)",
-                        border: "1px solid rgba(239, 68, 68, 0.2)",
-                        borderRadius: "8px",
-                        color: "#f87171",
-                        cursor: taps.length === 0 ? "not-allowed" : "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                      title="Clear recorded taps for this section"
-                    >
-                      <RotateCcw size={12} />
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}

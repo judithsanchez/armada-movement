@@ -126,6 +126,23 @@ export default defineConfig({
               }
             });
           }
+          else if (pathname === '/api/save-draft' && req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+              try {
+                const { youtubeId, draft } = JSON.parse(body);
+                const fileName = `${youtubeId}_draft.json`;
+                saveToBoth(fileName, draft);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true }));
+              } catch (err) {
+                console.error("[Developer API] Save draft failed:", err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: err.message }));
+              }
+            });
+          }
           else if (pathname === '/api/upload-song-audio' && req.method === 'POST') {
             try {
               const youtubeId = parsedUrl.searchParams.get('youtubeId');
