@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useSyncEngine } from "./hooks/useSyncEngine";
+import { adaptToAgnosticSong } from "./utils/schemaAdapter";
 import { ArrowLeft } from "lucide-react";
 import { isDevMode } from "./config/env";
 
@@ -257,9 +258,10 @@ export default function App() {
         return res.json();
       })
       .then((data) => {
-        setSongData(data);
-        setOriginalSongData(JSON.parse(JSON.stringify(data)));
-        setCalibratedSongData(JSON.parse(JSON.stringify(data)));
+        const adapted = adaptToAgnosticSong(data);
+        setSongData(adapted);
+        setOriginalSongData(JSON.parse(JSON.stringify(adapted)));
+        setCalibratedSongData(JSON.parse(JSON.stringify(adapted)));
         setIntroStart(data.metadata?.introStart || 0.0);
         setIntroEnd(data.metadata?.introEnd || 0.0);
         setBreaks(data.breaks || []);
