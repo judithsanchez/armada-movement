@@ -85,9 +85,9 @@ export default function SongSelector({ onSelectSong, onOpenDevDashboard }) {
           <button
             onClick={onOpenDevDashboard}
             style={{
-              background: "rgba(139, 92, 246, 0.15)",
-              border: "1px solid rgba(139, 92, 246, 0.4)",
-              color: "#c084fc",
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid #27272a",
+              color: "#ffffff",
               padding: "10px 18px",
               borderRadius: "12px",
               fontSize: "0.85rem",
@@ -98,8 +98,14 @@ export default function SongSelector({ onSelectSong, onOpenDevDashboard }) {
               alignItems: "center",
               gap: "8px"
             }}
-            onMouseOver={(e) => { e.currentTarget.style.background = "rgba(139, 92, 246, 0.25)"; }}
-            onMouseOut={(e) => { e.currentTarget.style.background = "rgba(139, 92, 246, 0.15)"; }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+              e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+              e.currentTarget.style.borderColor = "#27272a";
+            }}
           >
             🚀 Developer Console
           </button>

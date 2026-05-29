@@ -269,15 +269,18 @@ body {
 
 .btn-play {
   flex: 1.5;
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  background: linear-gradient(135deg, #ffffff, #e5e7eb);
   border: none;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.15);
+  color: #000000;
 }
 
 .btn-play:hover {
-  background: linear-gradient(135deg, #4338ca, #2563eb);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg, #f3f4f6, #d1d5db);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
+  color: #000000;
 }
+
 
 /* Custom speed toggle selector styling */
 .speed-toggle-container {
@@ -519,11 +522,11 @@ body {
   width: 100%;
   padding: 10px;
   border-radius: 12px;
-  background: rgba(139, 92, 246, 0.05); /* violet tint */
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid #27272a;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c084fc;
+  color: #a1a1aa;
   cursor: pointer;
   display: flex;
   justify-content: center;
@@ -534,9 +537,9 @@ body {
 }
 
 .diagnose-trigger:hover {
-  background: rgba(139, 92, 246, 0.15);
-  color: #e9d5ff;
-  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .diagnose-panel {
@@ -545,10 +548,10 @@ body {
   gap: 16px;
   padding: 20px;
   border-radius: 20px;
-  background: rgba(12, 10, 20, 0.65); /* slightly deeper violet-tinted glass */
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.6);
   margin-bottom: 16px;
 }
@@ -557,7 +560,7 @@ body {
   font-size: 1.1rem;
   font-weight: 800;
   margin: 0 0 4px 0;
-  color: #e9d5ff;
+  color: #ffffff;
   text-align: center;
   display: flex;
   align-items: center;
@@ -567,7 +570,7 @@ body {
 
 .diagnose-subtitle {
   font-size: 0.75rem;
-  color: #a78bfa;
+  color: #a1a1aa;
   margin: 0;
   text-align: center;
   line-height: 1.4;
@@ -601,20 +604,20 @@ body {
   outline: none;
   -webkit-tap-highlight-color: transparent;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 25px rgba(139, 92, 246, 0.2), inset 0 0 15px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.05);
 }
 
 .btn-diagnose-tap:hover {
   transform: scale(1.03);
-  border-color: #a78bfa;
-  box-shadow: 0 0 35px rgba(139, 92, 246, 0.4), inset 0 0 20px rgba(139, 92, 246, 0.2);
+  border-color: #ffffff;
+  box-shadow: 0 0 35px rgba(255, 255, 255, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .btn-diagnose-tap:active {
   transform: scale(0.95);
-  background: radial-gradient(circle, rgba(139,92,246,0.6) 0%, rgba(139,92,246,0.2) 100%);
-  border-color: #d8b4fe;
-  box-shadow: 0 0 45px rgba(168, 85, 247, 0.6), inset 0 0 25px rgba(168, 85, 247, 0.4);
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
+  border-color: #ffffff;
+  box-shadow: 0 0 45px rgba(255, 255, 255, 0.35), inset 0 0 25px rgba(255, 255, 255, 0.2);
 }
 
 .btn-diagnose-tap .tap-count-badge {
@@ -624,7 +627,7 @@ body {
   background: rgba(0, 0, 0, 0.4);
   padding: 2px 8px;
   border-radius: 20px;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .diagnose-stats-grid {
@@ -636,7 +639,7 @@ body {
 
 .diagnose-stat-card {
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
@@ -718,27 +721,26 @@ body {
 }
 
 .btn-diagnose-action.secondary {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: linear-gradient(135deg, #ffffff, #d1d5db);
+  border: none;
+  color: #000000;
 }
 
 .btn-diagnose-action.secondary:hover {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #6ee7b7;
+  background: linear-gradient(135deg, #e5e7eb, #9ca3af);
+  color: #000000;
 }
 
 .btn-diagnose-action.danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: #27272a;
+  color: #a1a1aa;
 }
 
 .btn-diagnose-action.danger:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .diagnose-history {
@@ -754,7 +756,7 @@ body {
 .diagnose-history-title {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #a78bfa;
+  color: #ffffff;
   text-transform: uppercase;
   margin-bottom: 2px;
 }
@@ -778,15 +780,15 @@ body {
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 12, 30, 0.85);
-  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   color: #fff;
   padding: 10px 20px;
   border-radius: 30px;
   font-size: 0.85rem;
   font-weight: 600;
   z-index: 9999;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   pointer-events: none;
@@ -826,8 +828,8 @@ body {
 }
 
 .diagnose-table th {
-  background: rgba(139, 92, 246, 0.15);
-  color: #c084fc;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
   font-weight: 700;
   padding: 6px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -864,27 +866,27 @@ body {
   font-weight: 800;
   font-family: monospace;
   font-size: 0.65rem;
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .bpm-badge.fast {
-  background: rgba(236, 72, 153, 0.15);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .bpm-badge.slow {
-  background: rgba(14, 165, 233, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(14, 165, 233, 0.3);
+  background: rgba(255, 255, 255, 0.02);
+  color: #71717a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .btn-del-anchor {
   border: none;
   background: transparent;
-  color: #ef4444;
+  color: #a1a1aa;
   cursor: pointer;
   padding: 0;
   display: flex;
@@ -898,8 +900,8 @@ body {
 }
 
 .btn-del-anchor:hover {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .btn-del-anchor:active {
@@ -960,30 +962,34 @@ body {
 }
 
 .btn-diagnose-action.active-ready {
-  background: linear-gradient(135deg, #10b981, #059669);
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+  background: linear-gradient(135deg, #ffffff, #d1d5db);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.25);
   cursor: pointer;
-  animation: pulse-green 2.5s infinite;
+  color: #000000;
+  font-weight: 800;
+  border: none;
+  animation: pulse-white 2.5s infinite;
 }
 
 .btn-diagnose-action.active-ready:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, #ffffff, #e5e7eb);
+  box-shadow: 0 6px 24px rgba(255, 255, 255, 0.35);
 }
 
 .btn-diagnose-action.active-ready:active {
   transform: translateY(1px);
 }
 
-@keyframes pulse-green {
+@keyframes pulse-white {
   0% {
-    box-shadow: 0 4px 20px 0 rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 20px 0 rgba(255, 255, 255, 0.25);
   }
   50% {
-    box-shadow: 0 4px 28px 8px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 28px 8px rgba(255, 255, 255, 0.15);
   }
   100% {
-    box-shadow: 0 4px 20px 0 rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 20px 0 rgba(255, 255, 255, 0.25);
   }
 }
 
@@ -1029,10 +1035,10 @@ body {
   font-weight: 800;
   margin: 0;
   letter-spacing: -1px;
-  background: linear-gradient(135deg, #ffffff 30%, #a78bfa 100%);
+  background: linear-gradient(135deg, #ffffff 30%, #a1a1aa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 4px 20px rgba(167, 139, 250, 0.15);
+  text-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
 }
 
 .catalog-subtitle {
@@ -1075,15 +1081,15 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .song-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(167, 139, 250, 0.35);
-  box-shadow: 0 12px 36px 0 rgba(139, 92, 246, 0.15), 0 0 2px 1px rgba(167, 139, 250, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 12px 36px 0 rgba(255, 255, 255, 0.08), 0 0 2px 1px rgba(255, 255, 255, 0.15);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
 }
 
@@ -1104,17 +1110,17 @@ body {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #a78bfa;
+  color: #a1a1aa;
   font-size: 1.5rem;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
 
 .song-card:hover .song-card-icon-container {
-  background: rgba(167, 139, 250, 0.15);
-  border-color: rgba(167, 139, 250, 0.3);
-  color: #c084fc;
-  box-shadow: 0 0 15px rgba(167, 139, 250, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
 }
 
 .song-card-details {
@@ -1168,30 +1174,28 @@ body {
 }
 
 .badge-bpm {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .badge-easy {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #34d399;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.05);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
 }
 
 .badge-medium {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  color: #fbbf24;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #d1d5db;
 }
 
 .badge-hard {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.05);
+  background: #ffffff;
+  border: 1px solid #ffffff;
+  color: #000000;
+  font-weight: 800;
 }
 
 .badge-style {
@@ -1213,12 +1217,12 @@ body {
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 3px solid rgba(167, 139, 250, 0.1);
-  border-top-color: #a78bfa;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
-  box-shadow: 0 0 15px rgba(167, 139, 250, 0.2);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
 }
 
 /* Header Back Navigation Link */
@@ -1280,7 +1284,7 @@ body {
 .intro-title {
   font-size: 1rem;
   font-weight: 800;
-  color: #e9d5ff;
+  color: #ffffff;
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -1289,10 +1293,10 @@ body {
 
 .intro-countdown {
   font-size: 0.75rem;
-  color: #a78bfa;
+  color: #ffffff;
   font-weight: 600;
-  background: rgba(167, 139, 250, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 3px 10px;
   border-radius: 8px;
 }
@@ -1368,12 +1372,12 @@ body {
   gap: 10px;
   padding: 12px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.15));
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.08);
   font-weight: 600;
   font-size: 0.95rem;
-  color: #c084fc;
+  color: #ffffff;
   margin-bottom: 16px;
   animation: bounce-slide 1.5s infinite ease-in-out;
 }
@@ -1409,42 +1413,42 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 6px;
-  background: radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.25) 0%, rgba(0, 0, 0, 0.6) 100%);
-  border: 2px dashed rgba(244, 63, 94, 0.45);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12) 0%, rgba(0, 0, 0, 0.8) 100%);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.15);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.08);
   animation: freeze-pulse-border 2s infinite ease-in-out;
 }
 
 .break-freeze-title {
   font-size: 1rem;
   font-weight: 800;
-  color: #fda4af;
+  color: #ffffff;
   letter-spacing: 1px;
   display: flex;
   align-items: center;
   gap: 6px;
-  text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .break-freeze-countdown {
   font-size: 0.75rem;
-  color: #f43f5e;
+  color: #a1a1aa;
   font-weight: 700;
-  background: rgba(244, 63, 94, 0.08);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 3px 10px;
   border-radius: 8px;
 }
 
 @keyframes freeze-pulse-border {
   0%, 100% {
-    border-color: rgba(244, 63, 94, 0.25);
-    box-shadow: 0 4px 16px rgba(244, 63, 94, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.05);
   }
   50% {
-    border-color: rgba(244, 63, 94, 0.6);
-    box-shadow: 0 4px 24px rgba(244, 63, 94, 0.35);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 24px rgba(255, 255, 255, 0.25);
   }
 }
 
@@ -1547,8 +1551,8 @@ body {
   max-height: 90vh;
   overflow-y: auto;
   width: 100%;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  background: rgba(139, 92, 246, 0.03);
+  border: 1px solid #27272a;
+  background: rgba(255, 255, 255, 0.015);
   padding: 16px;
 }
 

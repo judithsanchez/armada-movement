@@ -201,7 +201,7 @@ export default function DevDashboard({ onBack, onIngestSuccess }) {
             {/* Row 1: Title & Artist */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>Song Title</label>
+                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#ffffff", textTransform: "uppercase" }}>Song Title</label>
                 <input 
                   type="text" 
                   value={title} 
@@ -212,7 +212,7 @@ export default function DevDashboard({ onBack, onIngestSuccess }) {
                 />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>Artist</label>
+                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#ffffff", textTransform: "uppercase" }}>Artist</label>
                 <input 
                   type="text" 
                   value={artist} 
@@ -227,8 +227,8 @@ export default function DevDashboard({ onBack, onIngestSuccess }) {
             {/* Row 2: YouTube ID / Link & Difficulty */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "4px" }}>
-                  <Youtube size={14} style={{ color: "#ef4444" }} /> YouTube Link or IFrame Tag
+                <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#ffffff", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Youtube size={14} style={{ color: "#ffffff" }} /> YouTube Link or IFrame Tag
                 </label>
                 <input 
                   type="text" 
@@ -286,7 +286,7 @@ export default function DevDashboard({ onBack, onIngestSuccess }) {
 
             {/* Row 3: Dance Style */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>Dance Style</label>
+              <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#ffffff", textTransform: "uppercase" }}>Dance Style</label>
               <select 
                 value={danceStyle} 
                 onChange={(e) => setDanceStyle(e.target.value)}
@@ -299,14 +299,14 @@ export default function DevDashboard({ onBack, onIngestSuccess }) {
 
             {/* Row 4: Audio File Upload Dropzone */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>Audio Track (.mp3 / .mp4)</label>
+              <label style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#ffffff", textTransform: "uppercase" }}>Audio Track (.mp3 / .mp4)</label>
               <div 
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  border: "2px dashed rgba(139, 92, 246, 0.4)",
-                  background: audioFile ? "rgba(139, 92, 246, 0.05)" : "rgba(0,0,0,0.2)",
+                  border: "2px dashed #27272a",
+                  background: audioFile ? "rgba(255, 255, 255, 0.04)" : "rgba(0,0,0,0.2)",
                   borderRadius: "12px",
                   padding: "24px",
                   textAlign: "center",

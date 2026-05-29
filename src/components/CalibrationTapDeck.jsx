@@ -9,7 +9,7 @@ export default function CalibrationTapDeck({
       <button
         className="btn-diagnose-tap"
         onClick={onTapOnOne}
-        style={{ width: "100%", height: "80px", borderRadius: "16px", border: "3px solid #8b5cf6" }}
+        style={{ width: "100%", height: "80px", borderRadius: "16px", border: "3px solid rgba(255, 255, 255, 0.4)" }}
       >
         <span style={{ fontSize: "1.2rem", fontWeight: "800" }}>TAP ON "1"</span>
         <span style={{ fontSize: "0.65rem", opacity: 0.8, fontWeight: "400" }}>Tap every time you hear count 1</span>
@@ -25,15 +25,15 @@ export default function CalibrationTapDeck({
               flexGrow: 1,
               minHeight: "48px",
               background: rawTaps.length >= 50
-                ? "linear-gradient(135deg, #10b981, #059669)"
+                ? "linear-gradient(135deg, #ffffff, #d1d5db)"
                 : "rgba(255,255,255,0.03)",
               boxShadow: rawTaps.length >= 50
-                ? "0 4px 16px rgba(16, 185, 129, 0.25)"
+                ? "0 4px 16px rgba(255, 255, 255, 0.25)"
                 : "none",
               border: rawTaps.length >= 50
                 ? "none"
                 : "1px solid rgba(255, 255, 255, 0.05)",
-              color: rawTaps.length >= 50 ? "#fff" : "#6b7280",
+              color: rawTaps.length >= 50 ? "#000000" : "#6b7280",
               fontWeight: "800",
               textTransform: "uppercase",
               borderRadius: "12px",
@@ -65,10 +65,10 @@ export default function CalibrationTapDeck({
             style={{
               width: "48px",
               height: "48px",
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid #27272a",
               borderRadius: "12px",
-              color: "#f87171",
+              color: "#a1a1aa",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",

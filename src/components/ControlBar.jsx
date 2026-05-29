@@ -26,12 +26,12 @@ export default function ControlBar({
         <button className="btn-touch btn-play" onClick={onPlayToggle} style={{ flexGrow: 2 }}>
           {isActuallyPlaying ? (
             <>
-              <Pause size={20} fill="#fff" />
+              <Pause size={20} fill="currentColor" />
               <span>Pause Song</span>
             </>
           ) : (
             <>
-              <Play size={20} fill="#fff" />
+              <Play size={20} fill="currentColor" />
               <span>Play Song</span>
             </>
           )}
